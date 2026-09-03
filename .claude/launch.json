@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "expo",
+      "runtimeExecutable": "/Users/macbookair/.nvm/versions/node/v20.20.2/bin/node",
+      "runtimeArgs": ["node_modules/expo/bin/cli", "start"],
+      "port": 8081
+    }
+  ]
+}
