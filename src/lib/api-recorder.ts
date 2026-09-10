@@ -15,6 +15,8 @@ export type PageMap = {
   controls: { tag: string; type: string; id: string; name: string; label: string }[];
   scripts: string[];
   links: string[];
+  /** Source of the page's inline scripts, where the firmware's mode map lives. */
+  inline?: string;
 };
 
 export type RecorderMessage =
@@ -34,11 +36,21 @@ export const RECORDER_JS = `
   function post(payload) {
     try { window.ReactNativeWebView.postMessage(JSON.stringify(payload)); } catch (e) {}
   }
+  // Never let a credential out of the page. The firmware posts the Wi-Fi
+  // password in clear text, and this log is stored and screenshotted.
+  var SECRET = /(pass|pwd|passwd|password|secret|token|key|psk)/i;
+  function redact(body) {
+    if (!body) return undefined;
+    var s = String(body).slice(0, 900);
+    return s.replace(/([^&=?]+)=([^&]*)/g, function (m, k, v) {
+      return SECRET.test(k) ? k + '=***redacted***' : m;
+    });
+  }
   function send(kind, method, url, body, status) {
     post({ kind: 'call', call: {
       id: String(++seq), at: Date.now(), kind: kind,
       method: String(method || 'GET').toUpperCase(),
-      url: String(url), body: body ? String(body).slice(0, 600) : undefined,
+      url: redact(String(url)), body: redact(body),
       status: status
     }});
   }
@@ -74,7 +86,9 @@ export const RECORDER_JS = `
       var parts = [];
       for (var i = 0; i < f.elements.length; i++) {
         var el = f.elements[i];
-        if (el.name) parts.push(el.name + '=' + (el.type === 'checkbox' ? el.checked : el.value));
+        if (!el.name) continue;
+        var val = el.type === 'checkbox' ? el.checked : el.value;
+        parts.push(el.name + '=' + (SECRET.test(el.name) || el.type === 'password' ? '***redacted***' : val));
       }
       send('form', f.method || 'GET', f.action || location.href, parts.join('&'));
     } catch (err) {}
@@ -110,9 +124,14 @@ export const RECORDER_JS = `
       });
       var scripts = [].slice.call(document.scripts)
         .map(function (s) { return s.src || '(inline ' + (s.textContent || '').length + ' chars)'; });
+      var inline = [].slice.call(document.scripts)
+        .filter(function (s) { return !s.src && s.textContent; })
+        .map(function (s) { return s.textContent; })
+        .join('\n/* --- next script --- */\n')
+        .slice(0, 20000);
       var links = [].slice.call(document.links).map(function (a) { return a.getAttribute('href') || ''; });
       post({ kind: 'pagemap', title: document.title || '', forms: forms,
-             controls: controls, scripts: scripts, links: links });
+             controls: controls, scripts: scripts, links: links, inline: inline });
     } catch (err) {}
   }
 

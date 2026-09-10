@@ -18,6 +18,16 @@ function emit() {
   AsyncStorage.setItem(KEY, JSON.stringify(snapshot)).catch(() => {});
 }
 
+const SECRET = /(pass|pwd|passwd|password|secret|token|key|psk)/i;
+
+/** Strips credentials from a form-encoded body. */
+export function scrub(body?: string): string | undefined {
+  if (!body) return body;
+  return body.replace(/([^&=?]+)=([^&]*)/g, (m, k: string) =>
+    SECRET.test(k) ? `${k}=***redacted***` : m
+  );
+}
+
 export async function loadLog(): Promise<Log> {
   if (loaded) return log;
   try {
@@ -26,6 +36,11 @@ export async function loadLog(): Promise<Log> {
   } catch {
     // A corrupt record just starts the log empty.
   }
+  // Earlier builds stored bodies unredacted, so clean them on the way in
+  // and write the clean version straight back.
+  const before = JSON.stringify(log.calls);
+  log.calls = log.calls.map((c) => ({ ...c, body: scrub(c.body), url: scrub(c.url) as string }));
+  if (JSON.stringify(log.calls) !== before) emit();
   loaded = true;
   return log;
 }

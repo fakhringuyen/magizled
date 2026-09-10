@@ -2,7 +2,7 @@
   "expo": {
     "name": "MagizLED",
     "slug": "mobile-app",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "orientation": "default",
     "icon": "./assets/images/magiz-icon.png",
     "scheme": "magizled",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.fakhri626.magizled",
-      "versionCode": 3,
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#07070C",

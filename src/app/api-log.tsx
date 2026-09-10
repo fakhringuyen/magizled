@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -14,6 +14,12 @@ export default function ApiLogScreen() {
   const { log, clear } = useApiLog();
 
   const text = summarise(log);
+  const inline = log.map?.inline ?? '';
+
+  async function shareText(title: string, body: string) {
+    if (!body) return;
+    await Share.share({ title, message: body }).catch(() => {});
+  }
   const unique = new Set(log.calls.map((c) => `${c.method} ${c.url}`)).size;
 
   return (
@@ -30,7 +36,7 @@ export default function ApiLogScreen() {
         <Text style={styles.lede}>
           {log.calls.length === 0 && !log.map
             ? 'Nothing recorded yet. Turn on Record device API in Settings, open the board, then press the controls you want mapped.'
-            : `${unique} unique endpoints from ${log.calls.length} calls. Screenshot this and send it over.`}
+            : `${unique} unique endpoints from ${log.calls.length} calls. Use Share below rather than a screenshot. Passwords are redacted.`}
         </Text>
 
         {!!text && (
@@ -64,7 +70,22 @@ export default function ApiLogScreen() {
           </>
         )}
 
-        <Button label="Clear log" onPress={clear} variant="secondary" full />
+        <View style={{ gap: Space.md }}>
+          <Button
+            label="Share endpoint map"
+            onPress={() => shareText('MagizLED endpoints', text)}
+            disabled={!text}
+            full
+          />
+          <Button
+            label={inline ? `Share page script (${inline.length} chars)` : 'No page script captured'}
+            onPress={() => shareText('MagizLED page script', inline)}
+            variant="secondary"
+            disabled={!inline}
+            full
+          />
+          <Button label="Clear log" onPress={clear} variant="ghost" full />
+        </View>
       </ScrollView>
     </View>
   );
