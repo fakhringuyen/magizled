@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Android build output and signing
+*.apk
+*.aab
+credentials.json

@@ -46,6 +46,32 @@ Launch Claude Code from this folder so it gets its own memory scope.
 - 8 GB RAM. Run one simulator or emulator at a time. Close the Android emulator before the iOS one.
 - Read the versioned Expo docs linked at the top before writing native or config code.
 
+### Android APK
+
+Builds run on EAS Cloud. This Mac has no JDK, no Android SDK, and no Android Studio.
+A local Gradle build is not possible until those are installed.
+
+| Command | Profile | Output |
+|---|---|---|
+| `npm run build:apk` | preview | APK for direct install on the phone |
+| `npm run build:dev` | development | APK with the dev client, for `expo start --dev-client` |
+| `npm run build:prod` | production | AAB for the Play Store |
+
+- `eas-cli` 24.0.0 is installed GLOBALLY in the Node 20 prefix, next to `vercel` and
+  `lark-cli`. Call it as `eas`.
+- Never add `eas-cli` to the project dependencies. EAS installs the project dependencies
+  on the build machine, so a local `eas-cli` gets installed there too. It adds 386 packages
+  and pulls `dtrace-provider`, which needs a node-gyp compile. That broke build
+  `e6b00374` in the Install dependencies phase on 10 Sep 2026.
+- Log in once with `eas login`, then `eas init` to create the project on Expo.
+- Android package is `com.fakhri626.mobileapp`, set in `app.json`.
+  Change it before any Play Store upload. It cannot change after the first upload.
+- EAS creates and stores the signing keystore on Expo servers on the first build.
+  Back it up with `eas credentials`. A lost keystore blocks all future Play Store updates.
+- `versionCode` starts at 1 in `app.json`. The production profile increments it automatically.
+- Install the APK on the phone by opening the EAS build link on the phone itself.
+  `adb install` needs platform-tools, which are not installed.
+
 ### Git
 
 - Identity is the personal GitHub account `fakhri626`, set per repo:
