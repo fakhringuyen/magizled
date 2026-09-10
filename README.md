@@ -1,56 +1,64 @@
-# Welcome to your Expo app 👋
+# MagizLED
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A rebuild of the MagizLED Android app. The original was built in MIT App Inventor
+(`appinventor.ai_zamzamy_ig.MagizAutos`, v1.0). This version is Expo SDK 57 and
+React Native.
 
-## Get started
+The app is a controller front end. It finds the LED controller on the local
+Wi-Fi and shows the controller's own web page inside the app.
 
-1. Install dependencies
+## Screens
 
-   ```bash
-   npm install
-   ```
+| Route | Purpose |
+|---|---|
+| `/` | Connect. Probes the controller and reports why it is not answering. |
+| `/control` | The controller's web page, with reload, in-page back, and error recovery. |
+| `/settings` | Controller address, auto open, keep the screen on. |
 
-2. Start the app
+## What changed from the original
 
-   ```bash
-   npx expo start
-   ```
+| Area | Original | Now |
+|---|---|---|
+| Reachability | `Net1.IsConnected`, true on mobile data too | Real HTTP probe of the controller, with a 4 second timeout |
+| Address | `http://192.168.2.2` hard coded | Editable and saved, with a Test connection button |
+| Back button | Always opened the exit dialog | Walks the page history first |
+| Exit dialog | Buttons "IYA" and "#MAGIZ" | "Close" and "Stay" |
+| Load failure | Blank page | Error pane with the reason, Retry, and Change address |
+| Load progress | None | Progress bar |
+| Loading art | 4 Lottie files, 2 at 1920x1080 | Reanimated rings, no asset |
+| Screen sleep | Slept while you adjusted the lights | Optional keep awake |
+| Off-device links | Opened inside the WebView with no way back | Open in the system browser |
+| Page fit | Firmware pages render zoomed out | A viewport tag is injected when the page has none |
+| API level | `minSdk 13`, `targetSdk 33` | `minSdk 24`, `targetSdk 36` |
+| Permissions | INTERNET, ACCESS_NETWORK_STATE, legacy storage flags | INTERNET, ACCESS_NETWORK_STATE, VIBRATE. Camera, microphone, storage and draw-over-other-apps are blocked. |
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Run it
 
 ```bash
-npm run reset-project
+npm run ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+```bash
+npm start
+```
 
-### Other setup steps
+Then scan the QR code with Expo Go. The phone and the Mac must share a network.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Build the Android APK
 
-## Learn more
+```bash
+npm run build:apk
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Builds run on EAS Cloud. This Mac has no JDK and no Android SDK, so a local
+Gradle build is not possible. See `AGENTS.md`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Testing without the hardware
 
-## Join the community
+Serve any page on the Mac and point the app at it:
 
-Join our community of developers creating universal apps.
+```bash
+python3 -m http.server 8099 --bind 0.0.0.0
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Set the address in Settings to `<your-mac-ip>:8099`.

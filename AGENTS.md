@@ -7,16 +7,26 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 Personal hobby app by Fakhri. It has no link to any client folder under `~/Documents`.
 Launch Claude Code from this folder so it gets its own memory scope.
 
+The app is **MagizLED**, rebuilt on 10 Sep 2026 from `~/Downloads/Programs/MagizLED.apk`.
+That APK was MIT App Inventor (`appinventor.ai_zamzamy_ig.MagizAutos`, v1.0). It wrapped the
+LED controller's own web page at `http://192.168.2.2` in a WebViewer, behind a generic
+connectivity check. The rebuild keeps that job and fixes the gate, the back button, the exit
+dialog, and the missing error states. `README.md` holds the before and after table.
+The decoded original is described there; the APK itself is not in this repo.
+
 ### Stack on 3 Sep 2026
 
 | Part | Version |
 |---|---|
-| Expo SDK | 57 (`expo` 57.0.19) |
+| Expo SDK | 57 (`expo` 57.0.21) |
 | React Native | 0.86.3 |
 | React | 19.2.3 |
 | TypeScript | 6.0 |
 | Router | expo-router, file routes in `src/app` |
 | React Compiler | on (`experiments.reactCompiler`) |
+| WebView | `react-native-webview` 13.16.1 |
+| Storage | `@react-native-async-storage/async-storage` 2.2.0 |
+| Icons | `react-native-svg` 15.15.4, hand drawn in `src/components/icons.tsx` |
 
 ### Run it
 
@@ -45,6 +55,25 @@ Launch Claude Code from this folder so it gets its own memory scope.
   The Claude simulator tool's screenshot action crashes on this Mac. Its tap and text actions work.
 - 8 GB RAM. Run one simulator or emulator at a time. Close the Android emulator before the iOS one.
 - Read the versioned Expo docs linked at the top before writing native or config code.
+- `StyleSheet.absoluteFillObject` is GONE in React Native 0.86. Use `StyleSheet.absoluteFill`,
+  which is now the plain frozen object, so both `style={StyleSheet.absoluteFill}` and
+  `{ ...StyleSheet.absoluteFill }` work.
+- `android.usesCleartextTraffic` is NOT a valid `app.json` key in SDK 57. It lives in the
+  `expo-build-properties` plugin. `android.edgeToEdgeEnabled` is gone too, since edge to edge
+  is always on. `npx expo-doctor` catches both.
+- `useKeepAwake(undefined)` still holds the default lock, so it cannot be used to turn the
+  lock off. Drive `activateKeepAwakeAsync` and `deactivateKeepAwake` from an effect instead.
+
+### Testing without the LED hardware
+
+Serve a page from the Mac and point the app's Settings address at `<mac-ip>:8099`:
+
+```
+python3 -m http.server 8099 --bind 0.0.0.0
+```
+
+Real firmware pages ship no viewport tag and assume a desktop width, so test with a fixed
+width page. `src/app/control.tsx` injects a viewport tag only when the page has none.
 
 ### Android APK
 
@@ -64,8 +93,10 @@ A local Gradle build is not possible until those are installed.
   and pulls `dtrace-provider`, which needs a node-gyp compile. That broke build
   `e6b00374` in the Install dependencies phase on 10 Sep 2026.
 - Log in once with `eas login`, then `eas init` to create the project on Expo.
-- Android package is `com.fakhri626.mobileapp`, set in `app.json`.
-  Change it before any Play Store upload. It cannot change after the first upload.
+- Android package is `com.fakhri626.magizled`, set in `app.json`. It was
+  `com.fakhri626.mobileapp` until 10 Sep 2026. A package change makes EAS create a NEW
+  keystore, and an installed build of the old package will not upgrade in place. Uninstall
+  the old one on the phone first. It cannot change after a Play Store upload.
 - EAS creates and stores the signing keystore on Expo servers on the first build.
   Back it up with `eas credentials`. A lost keystore blocks all future Play Store updates.
 - `versionCode` starts at 1 in `app.json`. The production profile increments it automatically.
