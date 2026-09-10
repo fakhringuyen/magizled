@@ -132,9 +132,9 @@ export default function ConnectScreen() {
           accessibilityRole="summary"
           accessibilityLabel={
             reach.state === 'online'
-              ? `Controller online at ${settings.address}`
+              ? `LED board online at ${settings.address}`
               : reach.state === 'checking'
-                ? 'Looking for the controller'
+                ? 'Looking for the board'
                 : `${offline?.title}. ${offline?.body}`
           }>
           <View style={styles.statusHead}>
@@ -153,9 +153,9 @@ export default function ConnectScreen() {
             />
             <Text style={styles.statusTitle}>
               {reach.state === 'online'
-                ? 'Controller found'
+                ? 'Board found'
                 : reach.state === 'checking'
-                  ? 'Looking for the controller'
+                  ? 'Looking for the board'
                   : offline?.title}
             </Text>
           </View>
@@ -185,7 +185,7 @@ export default function ConnectScreen() {
           <Button
             label={
               reach.state === 'online'
-                ? 'Open controller'
+                ? 'Open board'
                 : reach.state === 'checking'
                   ? 'Checking'
                   : 'Try again'
@@ -227,8 +227,8 @@ export default function ConnectScreen() {
           <View style={styles.tip}>
             <AlertIcon size={18} />
             <Text style={styles.tipText}>
-              Android sends traffic over mobile data when a Wi-Fi network has no internet. Turn
-              mobile data off while you use the lights.
+              The board Wi-Fi has no internet, so Android quietly falls back to mobile data. Tap
+              stay connected when it asks, or turn mobile data off while you use the lights.
             </Text>
           </View>
         )}

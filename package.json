@@ -40,13 +40,14 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "build:apk": "eas build -p android --profile preview",
     "build:dev": "eas build -p android --profile development",
-    "build:prod": "eas build -p android --profile production"
+    "build:prod": "eas build -p android --profile production",
+    "build:ios-sim": "LANG=en_US.UTF-8 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer expo run:ios --configuration Release"
   },
   "private": true,
   "engines": {

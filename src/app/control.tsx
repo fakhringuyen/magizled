@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
 import { Button } from '@/components/button';
+import { RECORDER_JS, type RecorderMessage } from '@/lib/api-recorder';
+import { addCall, setMap } from '@/lib/recorder-store';
 import { Confirm } from '@/components/confirm';
 import { ChevronLeft, Gear, Power, Reload } from '@/components/icons';
 import { IconButton } from '@/components/icon-button';
@@ -106,6 +108,16 @@ export default function ControlScreen() {
     setCanGoBack(nav.canGoBack);
   }, []);
 
+  const onMessage = useCallback((e: { nativeEvent: { data: string } }) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data) as RecorderMessage;
+      if (msg.kind === 'call') addCall(msg.call);
+      else if (msg.kind === 'pagemap') setMap(msg);
+    } catch {
+      // The firmware page may post its own messages; ignore anything else.
+    }
+  }, []);
+
   // Keep off-device links out of the WebView; there is no address bar to escape with.
   const shouldLoad = useCallback(
     (req: { url: string }) => {
@@ -178,6 +190,8 @@ export default function ControlScreen() {
           pullToRefreshEnabled
           overScrollMode="never"
           injectedJavaScript={FIT_TO_SCREEN}
+          injectedJavaScriptBeforeContentLoaded={settings.recordApi ? RECORDER_JS : undefined}
+          onMessage={onMessage}
           onNavigationStateChange={onNav}
           onShouldStartLoadWithRequest={shouldLoad}
           onLoadStart={() => {

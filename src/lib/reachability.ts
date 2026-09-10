@@ -15,19 +15,19 @@ export type OfflineReason =
 export const OFFLINE_COPY: Record<OfflineReason, { title: string; body: string }> = {
   'no-network': {
     title: 'No network',
-    body: 'Turn on Wi-Fi and join the Magiz access point.',
+    body: 'Turn Wi-Fi on and join the Wi-Fi the LED board broadcasts.',
   },
   'not-wifi': {
     title: 'Not on Wi-Fi',
-    body: 'Join the Magiz Wi-Fi. The controller is only reachable on its own network.',
+    body: 'This phone is on mobile data. Join the Wi-Fi the LED board broadcasts.',
   },
   timeout: {
-    title: 'No answer from the controller',
-    body: 'The Wi-Fi is up but the controller did not reply. If Android warns that this Wi-Fi has no internet, choose to stay connected, or turn mobile data off.',
+    title: 'No answer from the board',
+    body: 'This phone is on Wi-Fi but the board did not reply. The board Wi-Fi has no internet, so Android may be sending everything over mobile data instead.',
   },
   refused: {
-    title: 'Controller refused the connection',
-    body: 'Something answered at that address but not the controller page. Check the address.',
+    title: 'Wrong device at that address',
+    body: 'Something answered but it was not the LED board. Check the address.',
   },
   'bad-address': {
     title: 'Address is not valid',

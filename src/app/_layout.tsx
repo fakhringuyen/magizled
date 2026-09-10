@@ -42,6 +42,10 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="control" />
           <Stack.Screen
+            name="api-log"
+            options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
             name="settings"
             options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
           />
