@@ -1,69 +1,40 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Platform, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, BackHandler, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
 
 import { Button } from '@/components/button';
-import { RECORDER_JS, type RecorderMessage } from '@/lib/api-recorder';
-import { addCall, setMap } from '@/lib/recorder-store';
 import { Confirm } from '@/components/confirm';
+import { DeviceProvider, useDevice } from '@/components/device-provider';
+import { RangeField, SelectField, SwitchField, TextField, TogglePill } from '@/components/field';
 import { ChevronLeft, Gear, Power, Reload } from '@/components/icons';
 import { IconButton } from '@/components/icon-button';
 import { warn } from '@/lib/haptics';
-import { toUrl, useSettings } from '@/lib/settings';
+import type { FieldSchema, FormSchema } from '@/lib/device-bridge';
+import { useSettings } from '@/lib/settings';
 import { Palette, Radius, Space, Type } from '@/theme/tokens';
 
-/**
- * Controller firmware pages are often built for a desktop window and ship no
- * viewport tag, so they render zoomed out. Add one only when it is missing and
- * kill the 300 ms tap delay. Everything is guarded so a failure cannot block
- * the page.
- */
-const FIT_TO_SCREEN = `
-(function () {
-  try {
-    if (!document.querySelector('meta[name="viewport"]')) {
-      var m = document.createElement('meta');
-      m.name = 'viewport';
-      m.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
-      (document.head || document.documentElement).appendChild(m);
-    }
-    var s = document.createElement('style');
-    s.textContent = 'html{-webkit-text-size-adjust:100%}' +
-      '*{-webkit-tap-highlight-color:transparent;touch-action:manipulation}';
-    (document.head || document.documentElement).appendChild(s);
-  } catch (e) {}
-})();
-true;
-`;
-
 const KEEP_AWAKE_TAG = 'magizled-control';
+const ANIMATION = /^animation(\d+)$/i;
+const MESSAGE = /^runningtext(\d+)$/i;
+const SECRET = /(pass|pwd|password|secret|token|key|psk)/i;
 
-function hostOf(url: string): string {
-  return url.replace(/^https?:\/\//i, '').split('/')[0].toLowerCase();
+export default function ControlRoute() {
+  return (
+    <DeviceProvider>
+      <Panel />
+    </DeviceProvider>
+  );
 }
 
-export default function ControlScreen() {
+function Panel() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const webRef = useRef<WebView>(null);
-
-  const url = useMemo(() => toUrl(settings.address), [settings.address]);
-  const host = useMemo(() => hostOf(url), [url]);
-
-  const [progress, setProgress] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [canGoBack, setCanGoBack] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const device = useDevice();
   const [askExit, setAskExit] = useState(false);
 
-  // The original app let the screen sleep while you were adjusting the lights.
-  // useKeepAwake cannot be called conditionally, and passing undefined would
-  // still hold the default lock, so drive the lock by hand.
   useEffect(() => {
     if (!settings.keepAwake) return;
     activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
@@ -72,18 +43,6 @@ export default function ControlScreen() {
     };
   }, [settings.keepAwake]);
 
-  const reload = useCallback(() => {
-    setError(null);
-    setLoading(true);
-    webRef.current?.reload();
-  }, []);
-
-  const goBackInPage = useCallback(() => {
-    webRef.current?.goBack();
-  }, []);
-
-  // Hardware back walks the page history first. The original always jumped
-  // straight to the exit dialog, so you could never leave a sub page.
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== 'android') return;
@@ -92,63 +51,41 @@ export default function ControlScreen() {
           setAskExit(false);
           return true;
         }
-        if (canGoBack && !error) {
-          goBackInPage();
-          return true;
-        }
         warn();
         setAskExit(true);
         return true;
       });
       return () => sub.remove();
-    }, [askExit, canGoBack, error, goBackInPage])
+    }, [askExit])
   );
 
-  const onNav = useCallback((nav: WebViewNavigation) => {
-    setCanGoBack(nav.canGoBack);
-  }, []);
-
-  const onMessage = useCallback((e: { nativeEvent: { data: string } }) => {
-    try {
-      const msg = JSON.parse(e.nativeEvent.data) as RecorderMessage;
-      if (msg.kind === 'call') addCall(msg.call);
-      else if (msg.kind === 'pagemap') setMap(msg);
-    } catch {
-      // The firmware page may post its own messages; ignore anything else.
-    }
-  }, []);
-
-  // Keep off-device links out of the WebView; there is no address bar to escape with.
-  const shouldLoad = useCallback(
-    (req: { url: string }) => {
-      if (!/^https?:/i.test(req.url)) return true;
-      if (hostOf(req.url) === host) return true;
-      WebBrowser.openBrowserAsync(req.url).catch(() => {});
-      return false;
-    },
-    [host]
-  );
+  const saved = device.saved;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.bar}>
-        <IconButton
-          label="Back within the page"
-          onPress={goBackInPage}
-          disabled={!canGoBack || !!error}>
-          <ChevronLeft color={canGoBack && !error ? Palette.text : Palette.textFaint} />
+        <IconButton label="Back to connect" onPress={() => router.replace('/')}>
+          <ChevronLeft />
         </IconButton>
-
         <View style={styles.barTitle}>
           <View
-            style={[styles.dot, { backgroundColor: error ? Palette.danger : Palette.online }]}
+            style={[
+              styles.dot,
+              {
+                backgroundColor:
+                  device.status === 'ready'
+                    ? Palette.online
+                    : device.status === 'loading'
+                      ? Palette.warn
+                      : Palette.danger,
+              },
+            ]}
           />
           <Text style={styles.host} numberOfLines={1}>
-            {host}
+            {saved ? 'Saved' : device.title || settings.address}
           </Text>
         </View>
-
-        <IconButton label="Reload the page" onPress={reload}>
+        <IconButton label="Reload from the board" onPress={device.reload}>
           <Reload />
         </IconButton>
         <IconButton label="Settings" onPress={() => router.push('/settings')}>
@@ -166,82 +103,53 @@ export default function ControlScreen() {
         )}
       </View>
 
-      <View style={styles.track}>
-        {loading && !error && (
-          <View style={[styles.fill, { width: `${Math.max(6, progress * 100)}%` }]} />
-        )}
-      </View>
+      {device.status === 'loading' && (
+        <View style={styles.centre}>
+          <ActivityIndicator color={Palette.magenta} />
+          <Text style={styles.centreText}>Reading the board&apos;s controls</Text>
+        </View>
+      )}
 
-      <View style={styles.body}>
-        <WebView
-          ref={webRef}
-          source={{ uri: url }}
-          originWhitelist={['*']}
-          // The controller serves plain HTTP on the local network.
-          mixedContentMode="always"
-          javaScriptEnabled
-          domStorageEnabled
-          cacheEnabled
-          cacheMode="LOAD_DEFAULT"
-          // Hardware layers keep colour pickers and sliders smooth on Android.
-          androidLayerType="hardware"
-          setSupportMultipleWindows={false}
-          allowsBackForwardNavigationGestures
-          pullToRefreshEnabled
-          overScrollMode="never"
-          injectedJavaScript={FIT_TO_SCREEN}
-          injectedJavaScriptBeforeContentLoaded={settings.recordApi ? RECORDER_JS : undefined}
-          onMessage={onMessage}
-          onNavigationStateChange={onNav}
-          onShouldStartLoadWithRequest={shouldLoad}
-          onLoadStart={() => {
-            setLoading(true);
-            setProgress(0);
-          }}
-          onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
-          onLoadEnd={() => setLoading(false)}
-          onLoad={() => setError(null)}
-          onError={({ nativeEvent }) => {
-            setLoading(false);
-            setError(nativeEvent.description || 'The page could not be loaded.');
-          }}
-          onHttpError={({ nativeEvent }) => {
-            setLoading(false);
-            setError(`The controller answered with HTTP ${nativeEvent.statusCode}.`);
-          }}
-          style={styles.web}
-          containerStyle={styles.web}
-        />
-
-        {error && (
-          <View style={styles.errorPane}>
-            <Text style={styles.errorTitle}>Cannot reach the controller</Text>
-            <Text style={styles.errorBody}>
-              Check that the phone is on the Magiz Wi-Fi and that {host} is the right address.
-            </Text>
-            <Text style={styles.errorDetail} selectable>
-              {error}
-            </Text>
-            <View style={styles.errorActions}>
-              <Button label="Retry" onPress={reload} full />
-              <Button
-                label="Change address"
-                onPress={() => router.push('/settings')}
-                variant="secondary"
-                full
-              />
-              <Button
-                label="Back to connect"
-                onPress={() => router.replace('/')}
-                variant="ghost"
-                full
-              />
-            </View>
+      {device.status === 'error' && (
+        <View style={styles.centre}>
+          <Text style={styles.errorTitle}>Cannot reach the board</Text>
+          <Text style={styles.centreText}>{device.error}</Text>
+          <View style={styles.errorActions}>
+            <Button label="Retry" onPress={device.reload} full />
+            <Button
+              label="Change address"
+              onPress={() => router.push('/settings')}
+              variant="secondary"
+              full
+            />
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
-      <View style={{ height: insets.bottom, backgroundColor: Palette.bg }} />
+      {device.status === 'ready' && (
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Space.xxl }]}
+          showsVerticalScrollIndicator={false}>
+          {device.error && <Text style={styles.inlineError}>{device.error}</Text>}
+
+          {device.forms.map((form) => (
+            <FormCard
+              key={form.index}
+              form={form}
+              busy={device.savingForm === form.index}
+              onApply={(values) => device.apply(form.index, values)}
+            />
+          ))}
+
+          <Button
+            label="Open the board's own page"
+            onPress={() => router.push('/classic')}
+            variant="ghost"
+            accessibilityHint="Shows the original firmware page, in case a control is missing here"
+            full
+          />
+        </ScrollView>
+      )}
 
       <Confirm
         visible={askExit}
@@ -258,6 +166,109 @@ export default function ControlScreen() {
       />
     </View>
   );
+}
+
+function FormCard({
+  form,
+  busy,
+  onApply,
+}: {
+  form: FormSchema;
+  busy: boolean;
+  onApply: (values: Record<string, string | boolean>) => void;
+}) {
+  const animations = useMemo(() => form.fields.filter((f) => ANIMATION.test(f.name)), [form.fields]);
+  const messages = useMemo(() => form.fields.filter((f) => MESSAGE.test(f.name)), [form.fields]);
+  const rest = useMemo(
+    () => form.fields.filter((f) => !ANIMATION.test(f.name) && !MESSAGE.test(f.name)),
+    [form.fields]
+  );
+
+  const [anim, setAnim] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(animations.map((f) => [f.name, !!f.checked]))
+  );
+
+  const heading =
+    form.submitLabel ||
+    (animations.length ? 'Animations and messages' : rest[0]?.label || `Group ${form.index + 1}`);
+
+  function setAll(on: boolean) {
+    const next = Object.fromEntries(animations.map((f) => [f.name, on]));
+    setAnim(next);
+    onApply(next);
+  }
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {heading}
+        </Text>
+        {busy && <ActivityIndicator size="small" color={Palette.magenta} />}
+      </View>
+
+      {messages.map((f, i) => (
+        <TextField
+          key={f.name}
+          field={{ ...f, label: f.label || `Message ${i + 1}` }}
+          onCommit={(v) => onApply({ [f.name]: v })}
+        />
+      ))}
+
+      {rest.map((f) => (
+        <FieldRow key={f.name} field={f} onCommit={(v) => onApply({ [f.name]: v })} />
+      ))}
+
+      {animations.length > 0 && (
+        <View style={styles.animBlock}>
+          <View style={styles.animHead}>
+            <Text style={styles.label}>
+              {animations.length} animations
+              <Text style={styles.countFaint}>
+                {`  ${Object.values(anim).filter(Boolean).length} on`}
+              </Text>
+            </Text>
+            <View style={styles.animActions}>
+              <Button label="All" onPress={() => setAll(true)} variant="secondary" />
+              <Button label="None" onPress={() => setAll(false)} variant="secondary" />
+            </View>
+          </View>
+          <View style={styles.grid}>
+            {animations.map((f) => {
+              const n = f.name.match(ANIMATION)?.[1] ?? f.name;
+              return (
+                <TogglePill
+                  key={f.name}
+                  label={n}
+                  on={!!anim[f.name]}
+                  onPress={() => {
+                    const next = { ...anim, [f.name]: !anim[f.name] };
+                    setAnim(next);
+                    onApply({ [f.name]: next[f.name] });
+                  }}
+                />
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function FieldRow({
+  field,
+  onCommit,
+}: {
+  field: FieldSchema;
+  onCommit: (v: string | boolean) => void;
+}) {
+  if (field.options?.length) return <SelectField field={field} onCommit={onCommit} />;
+  if (field.type === 'range') return <RangeField field={field} onCommit={onCommit} />;
+  if (field.type === 'checkbox' || field.type === 'radio')
+    return <SwitchField field={field} onCommit={onCommit} />;
+  const secure = field.type === 'password' || SECRET.test(field.name);
+  return <TextField field={field} onCommit={onCommit} secure={secure} />;
 }
 
 const styles = StyleSheet.create({
@@ -278,27 +289,32 @@ const styles = StyleSheet.create({
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
   host: { ...Type.mono, color: Palette.textMuted, flexShrink: 1 },
-  track: { height: 2, backgroundColor: Palette.bgElevated },
-  fill: { height: 2, backgroundColor: Palette.magenta },
-  body: { flex: 1, backgroundColor: Palette.bg },
-  web: { flex: 1, backgroundColor: Palette.bg },
-  errorPane: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: Palette.bg,
-    padding: Space.xl,
-    justifyContent: 'center',
-    gap: Space.md,
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Space.xl, gap: Space.md },
+  centreText: { ...Type.body, color: Palette.textMuted, textAlign: 'center' },
+  errorTitle: { ...Type.title, color: Palette.text, textAlign: 'center' },
+  errorActions: { alignSelf: 'stretch', gap: Space.md, marginTop: Space.md },
+  inlineError: { ...Type.caption, color: Palette.danger },
+  content: {
+    padding: Space.lg,
+    gap: Space.lg,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
   },
-  errorTitle: { ...Type.title, color: Palette.text },
-  errorBody: { ...Type.body, color: Palette.textMuted },
-  errorDetail: {
-    ...Type.caption,
-    color: Palette.textFaint,
+  card: {
     backgroundColor: Palette.surface,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: Palette.border,
-    padding: Space.md,
+    padding: Space.lg,
+    gap: Space.lg,
   },
-  errorActions: { gap: Space.md, marginTop: Space.sm },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardTitle: { ...Type.label, color: Palette.textFaint, textTransform: 'uppercase', letterSpacing: 1, flexShrink: 1 },
+  label: { ...Type.body, color: Palette.text },
+  countFaint: { ...Type.caption, color: Palette.textFaint },
+  animBlock: { gap: Space.md },
+  animHead: { gap: Space.sm },
+  animActions: { flexDirection: 'row', gap: Space.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
 });
