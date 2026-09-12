@@ -103,6 +103,30 @@ A local Gradle build is not possible until those are installed.
 - Install the APK on the phone by opening the EAS build link on the phone itself.
   `adb install` needs platform-tools, which are not installed.
 
+### Building the APK
+
+- Build locally: `eas build -p android --profile preview --local --output MagizLED-<version>.apk`.
+  Gradle runs on this Mac. The keystore still comes from the Expo server, so the first build of
+  a session needs internet. A local APK and a cloud APK carry the same signature.
+- **NEVER start a second build before the first one has finished.** Hit 12 Sep 2026: two local
+  builds ran at once on this 8 GB machine, both writing to `MagizLED-preview.apk`. One took
+  **41m 54s** instead of the usual 9 to 17 minutes, and the older build overwrote the newer
+  artifact. Check `pgrep -f "eas-cli-local-build|gradlew"` before starting one.
+- **Put the version in the output filename**, so a stale build cannot masquerade as the current
+  one. Verify the artifact after every build:
+  `apkanalyzer manifest print <file>.apk | grep -E "versionCode|versionName"`.
+- Cloud builds (`eas build` without `--local`) sat in the free queue for 75 minutes without
+  starting on 10 Sep 2026. Prefer local.
+
+### Testing without the board
+
+`src/lib/magiz-api.ts` holds the firmware contract, so it can be tested without hardware. The
+mock board and the 39 assertion suite live in the session scratchpad, not in the repo. To rebuild
+them, serve `GET /data` as `key=value&...` and accept `POST /message`, then log every request and
+assert on the exact payload. The case that matters most: mode 7 must carry all three messages,
+`parameter4` and every checked animation, because an HTML form omits unchecked boxes and the
+board reads a missing one as off.
+
 ### Git
 
 - Identity is the personal GitHub account `fakhri626`, set per repo:
