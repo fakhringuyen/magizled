@@ -315,7 +315,6 @@ function WifiCard() {
   const board = useBoard();
   const [ssid, setSsid] = useState(board.state.ssid);
   const [password, setPassword] = useState('');
-  const [reveal, setReveal] = useState(false);
   const [confirm, setConfirm] = useState(false);
 
   const dirty = ssid.trim() !== board.state.ssid || password.length > 0;
@@ -336,22 +335,16 @@ function WifiCard() {
       <TextField
         field={{ name: 'password-local', type: 'text', value: password, label: 'Password' }}
         onCommit={(v) => setPassword(String(v))}
-        secure={!reveal}
+        secure
       />
       {tooShort && <Text style={styles.inlineError}>The board needs at least 8 characters.</Text>}
 
-      <View style={styles.actionsRow}>
-        <Button
-          label={reveal ? 'Hide password' : 'Show password'}
-          onPress={() => setReveal((r) => !r)}
-          variant="ghost"
-        />
-        <Button
-          label="Save Wi-Fi"
-          onPress={() => setConfirm(true)}
-          disabled={!dirty || tooShort || !ssid.trim()}
-        />
-      </View>
+      <Button
+        label="Save Wi-Fi"
+        onPress={() => setConfirm(true)}
+        disabled={!dirty || tooShort || !ssid.trim()}
+        full
+      />
 
       <Confirm
         visible={confirm}

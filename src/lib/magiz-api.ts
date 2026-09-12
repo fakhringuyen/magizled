@@ -190,6 +190,19 @@ function encode(pairs: Record<string, string>): string {
     .join('&');
 }
 
+/** Turns transport failures into something a person can act on. */
+function friendly(err: unknown, timeoutMs: number): Error {
+  const name = (err as Error)?.name;
+  const msg = (err as Error)?.message ?? '';
+  if (name === 'AbortError' || /abort/i.test(msg)) {
+    return new Error(`The board did not answer within ${Math.round(timeoutMs / 1000)} seconds.`);
+  }
+  if (/network|failed to fetch|connection/i.test(msg)) {
+    return new Error('No route to the board. Check that this phone is on its Wi-Fi.');
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 async function post(base: string, pairs: Record<string, string>, timeoutMs = 6000) {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), timeoutMs);
@@ -201,6 +214,8 @@ async function post(base: string, pairs: Record<string, string>, timeoutMs = 600
       signal: ac.signal,
     });
     if (!res.ok) throw new Error(`The board answered HTTP ${res.status}.`);
+  } catch (e) {
+    throw friendly(e, timeoutMs);
   } finally {
     clearTimeout(t);
   }
@@ -211,7 +226,10 @@ export async function readState(base: string, timeoutMs = 5000): Promise<BoardSt
   const t = setTimeout(() => ac.abort(), timeoutMs);
   try {
     const res = await fetch(`${base}/data`, { signal: ac.signal });
+    if (!res.ok) throw new Error(`The board answered HTTP ${res.status}.`);
     return parseData(await res.text());
+  } catch (e) {
+    throw friendly(e, timeoutMs);
   } finally {
     clearTimeout(t);
   }
@@ -247,4 +265,37 @@ export function setRunning(
 /** Changing this drops the board off the current network, so it never auto saves. */
 export function setWifi(base: string, ssid: string, password: string) {
   return post(base, { mode: String(MODE_WIFI), ssid, password });
+}
+
+export type BoardInfo = {
+  /** Page title, e.g. "Full DC Product". */
+  title: string;
+  /** Version string printed on the page, e.g. "v.7.0". */
+  version: string;
+  /** Copyright line, e.g. "2023 Ralf Revanka". */
+  vendor: string;
+};
+
+/**
+ * The firmware prints its name, version and vendor in the page body rather
+ * than in /data, so read them from the page itself.
+ */
+export async function readInfo(base: string, timeoutMs = 5000): Promise<BoardInfo> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    const html = await (await fetch(base + '/', { signal: ac.signal })).text();
+    const title = /<title[^>]*>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim() ?? '';
+    const version = /\bv\.?\s?(\d+\.\d+(?:\.\d+)?)\b/i.exec(html)?.[0]?.trim() ?? '';
+    const vendor =
+      /(?:&copy;|\u00a9)\s*([^<\n]{1,60})/i
+        .exec(html)?.[1]
+        // The footer runs the copyright and the lock status together.
+        ?.split(/status\s*board/i)[0]
+        .trim()
+        .replace(/\s+/g, ' ') ?? '';
+    return { title, version, vendor };
+  } finally {
+    clearTimeout(t);
+  }
 }

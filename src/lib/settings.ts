@@ -10,15 +10,12 @@ export type Settings = {
   autoConnect: boolean;
   /** Hold the screen on while the controller is open. */
   keepAwake: boolean;
-  /** Record the requests the firmware page makes, to map the device API. */
-  recordApi: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   address: '192.168.2.2',
   autoConnect: true,
   keepAwake: true,
-  recordApi: false,
 };
 
 /** Accepts "192.168.2.2", "magiz.local", "http://host:8080/ui". */

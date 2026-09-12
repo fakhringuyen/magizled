@@ -44,7 +44,7 @@ export function useBoard(): BoardApi {
 }
 
 export function BoardProvider({ children }: { children: ReactNode }) {
-  const { settings } = useSettings();
+  const { settings, loaded } = useSettings();
   const base = useMemo(() => toUrl(settings.address), [settings.address]);
 
   const [status, setStatus] = useState<Status>('loading');
@@ -55,6 +55,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const stateRef = useRef(state);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A read against the old address can land after a newer one succeeded and
+  // drag a working panel into an error state, so only the latest read counts.
+  const reqId = useRef(0);
   useEffect(() => {
     stateRef.current = state;
   });
@@ -74,24 +77,30 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   // No setState runs before the first await, so mounting this is a plain
   // subscription to an external system rather than a cascading render.
   const refresh = useCallback(async () => {
+    const id = ++reqId.current;
     try {
       const next = await readState(base);
+      if (id !== reqId.current) return;
       setState(next);
       setStatus('ready');
       setError(null);
     } catch (e) {
+      if (id !== reqId.current) return;
       setStatus('error');
       setError((e as Error)?.message || 'The board did not answer.');
     }
   }, [base]);
 
   useEffect(() => {
+    // Waiting for the stored address avoids firing one doomed read at the
+    // default and showing the wrong host for five seconds.
+    if (!loaded) return;
     // Reading the board on mount is the "subscribe to an external system" case
     // the rule's own docs allow. It cannot see through the async boundary, and
     // no state is set before the first await inside refresh.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
-  }, [refresh]);
+  }, [refresh, loaded]);
 
   const run = useCallback(
     async (send: () => Promise<void>, optimistic: Partial<BoardState>) => {

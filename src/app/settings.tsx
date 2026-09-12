@@ -140,20 +140,14 @@ export default function SettingsScreen() {
             value={settings.keepAwake}
             onChange={(v) => update({ keepAwake: v })}
           />
-          <Row
-            title="Record device API"
-            body="Log the requests the board's page makes, so its controls can be rebuilt natively."
-            value={settings.recordApi}
-            onChange={(v) => update({ recordApi: v })}
-          />
-          {settings.recordApi && (
-            <Button
-              label="View recorded API"
-              onPress={() => router.push('/api-log')}
-              variant="secondary"
-            />
-          )}
         </View>
+
+        <Button
+          label="About and what changed"
+          onPress={() => router.push('/about')}
+          variant="secondary"
+          full
+        />
 
         <View style={styles.footer}>
           <Button label="Save address" onPress={save} disabled={!valid || !dirty} full />
