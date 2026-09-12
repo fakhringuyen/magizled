@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   BackHandler,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -41,6 +42,7 @@ function Panel() {
   const { settings } = useSettings();
   const board = useBoard();
   const [askExit, setAskExit] = useState(false);
+  const [pulling, setPulling] = useState(false);
 
   useEffect(() => {
     if (!settings.keepAwake) return;
@@ -137,7 +139,20 @@ function Panel() {
       {board.status === 'ready' && (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Space.xxl }]}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={pulling}
+              onRefresh={async () => {
+                setPulling(true);
+                await board.refresh();
+                setPulling(false);
+              }}
+              tintColor={Palette.magenta}
+              colors={[Palette.magenta]}
+              progressBackgroundColor={Palette.surface}
+            />
+          }>
           {!!board.error && <Text style={styles.inlineError}>{board.error}</Text>}
 
           <Appear index={0}>
