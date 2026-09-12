@@ -3,8 +3,21 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { tap } from '@/lib/haptics';
-import type { FieldSchema } from '@/lib/device-bridge';
 import { HitSize, Palette, Radius, Space, Type } from '@/theme/tokens';
+
+/** Shape a field renderer needs, independent of where it came from. */
+export type FieldSchema = {
+  name: string;
+  type: string;
+  value: string;
+  label: string;
+  checked?: boolean;
+  min?: string;
+  max?: string;
+  step?: string;
+  maxLength?: number;
+  options?: { value: string; label: string }[];
+};
 
 type Commit = (value: string | boolean) => void;
 
@@ -35,17 +48,12 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
   const [value, setValue] = useState(Number(field.value) || min);
   const debounced = useDebounced(onCommit, 500);
 
-  const pct = max > min ? Math.round(((value - min) / (max - min)) * 100) : 0;
-
   return (
     <View style={styles.block}>
       <View style={styles.head}>
         <Text style={styles.label}>{field.label || field.name}</Text>
         {/* The original sliders showed no number at all. */}
-        <Text style={styles.readout}>
-          {value}
-          <Text style={styles.readoutFaint}>{`  ${pct}%`}</Text>
-        </Text>
+        <Text style={styles.readout}>{value}</Text>
       </View>
       <Slider
         value={value}

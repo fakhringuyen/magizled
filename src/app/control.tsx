@@ -1,30 +1,35 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  BackHandler,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BoardProvider, useBoard } from '@/components/board-provider';
 import { Button } from '@/components/button';
 import { Confirm } from '@/components/confirm';
-import { DeviceProvider, useDevice } from '@/components/device-provider';
 import { RangeField, SelectField, SwitchField, TextField, TogglePill } from '@/components/field';
 import { ChevronLeft, Gear, Power, Reload } from '@/components/icons';
 import { IconButton } from '@/components/icon-button';
 import { warn } from '@/lib/haptics';
-import type { FieldSchema, FormSchema } from '@/lib/device-bridge';
+import { ANIMATION_COUNT, CONTROLS, TEXT_MAX, type Control } from '@/lib/magiz-api';
 import { useSettings } from '@/lib/settings';
 import { Palette, Radius, Space, Type } from '@/theme/tokens';
 
 const KEEP_AWAKE_TAG = 'magizled-control';
-const ANIMATION = /^animation(\d+)$/i;
-const MESSAGE = /^runningtext(\d+)$/i;
-const SECRET = /(pass|pwd|password|secret|token|key|psk)/i;
 
 export default function ControlRoute() {
   return (
-    <DeviceProvider>
+    <BoardProvider>
       <Panel />
-    </DeviceProvider>
+    </BoardProvider>
   );
 }
 
@@ -32,7 +37,7 @@ function Panel() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings } = useSettings();
-  const device = useDevice();
+  const board = useBoard();
   const [askExit, setAskExit] = useState(false);
 
   useEffect(() => {
@@ -59,18 +64,10 @@ function Panel() {
     }, [askExit])
   );
 
-  const saved = device.saved;
-
-  // Nine cards each holding one nameless field read as noise, so the
-  // single-field forms collapse into one list and keep their own form index.
-  const simple = useMemo(
-    () =>
-      device.forms
-        .filter((f) => f.fields.length === 1)
-        .map((form) => ({ form, field: form.fields[0] })),
-    [device.forms]
-  );
-  const rich = useMemo(() => device.forms.filter((f) => f.fields.length > 1), [device.forms]);
+  const sliders = CONTROLS.filter((c) => c.kind === 'range');
+  const pickers = CONTROLS.filter((c) => c.kind === 'select');
+  const vehicle = pickers.filter((c) => c.key === 'rem' || c.key === 'sein');
+  const display = pickers.filter((c) => c.key === 'font' || c.key === 'jl');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -84,19 +81,20 @@ function Panel() {
               styles.dot,
               {
                 backgroundColor:
-                  device.status === 'ready'
+                  board.status === 'ready'
                     ? Palette.online
-                    : device.status === 'loading'
+                    : board.status === 'loading'
                       ? Palette.warn
                       : Palette.danger,
               },
             ]}
           />
           <Text style={styles.host} numberOfLines={1}>
-            {saved ? 'Saved' : device.title || settings.address}
+            {board.saved ? 'Saved' : board.state.statusboard || settings.address}
           </Text>
+          {board.saving && <ActivityIndicator size="small" color={Palette.magenta} />}
         </View>
-        <IconButton label="Reload from the board" onPress={device.reload}>
+        <IconButton label="Read the board again" onPress={board.refresh}>
           <Reload />
         </IconButton>
         <IconButton label="Settings" onPress={() => router.push('/settings')}>
@@ -114,19 +112,19 @@ function Panel() {
         )}
       </View>
 
-      {device.status === 'loading' && (
+      {board.status === 'loading' && (
         <View style={styles.centre}>
           <ActivityIndicator color={Palette.magenta} />
-          <Text style={styles.centreText}>Reading the board&apos;s controls</Text>
+          <Text style={styles.centreText}>Reading the board</Text>
         </View>
       )}
 
-      {device.status === 'error' && (
+      {board.status === 'error' && (
         <View style={styles.centre}>
           <Text style={styles.errorTitle}>Cannot reach the board</Text>
-          <Text style={styles.centreText}>{device.error}</Text>
-          <View style={styles.errorActions}>
-            <Button label="Retry" onPress={device.reload} full />
+          <Text style={styles.centreText}>{board.error}</Text>
+          <View style={styles.actions}>
+            <Button label="Retry" onPress={board.refresh} full />
             <Button
               label="Change address"
               onPress={() => router.push('/settings')}
@@ -137,76 +135,48 @@ function Panel() {
         </View>
       )}
 
-      {device.status === 'ready' && (
+      {board.status === 'ready' && (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Space.xxl }]}
           showsVerticalScrollIndicator={false}>
-          {device.error && <Text style={styles.inlineError}>{device.error}</Text>}
+          {!!board.error && <Text style={styles.inlineError}>{board.error}</Text>}
 
-          {simple.length > 0 && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Board settings</Text>
-              {simple.map(({ form, field }) => (
-                <FieldRow
-                  key={`${form.index}-${field.name}`}
-                  field={field}
-                  onCommit={(v) => device.apply(form.index, { [field.name]: v })}
-                />
-              ))}
-            </View>
-          )}
+          <Card title="Light">
+            {sliders.map((c) => (
+              <ControlField key={c.key} control={c} />
+            ))}
+          </Card>
 
-          {rich.map((form) => (
-            <FormCard
-              key={form.index}
-              form={form}
-              busy={device.savingForm === form.index}
-              onApply={(values) => device.apply(form.index, values)}
-            />
-          ))}
+          <MessagesCard />
+          <AnimationsCard />
 
-          <View style={{ gap: Space.md }}>
-            <Button
-              label="Open the board's own page"
-              onPress={() => router.push('/classic')}
-              variant="ghost"
-              accessibilityHint="Shows the original firmware page, in case a control is missing here"
-              full
-            />
-            <Button
-              label={
-                device.inline
-                  ? `Share page script (${device.inline.length} chars)`
-                  : 'No page script captured'
-              }
-              onPress={() =>
-                Share.share({ title: 'MagizLED page script', message: device.inline }).catch(
-                  () => {}
-                )
-              }
-              variant="ghost"
-              disabled={!device.inline}
-              full
-            />
-            <Button
-              label={device.markup ? `Share form markup (${device.markup.length} chars)` : 'No markup captured'}
-              onPress={() =>
-                Share.share({ title: 'MagizLED form markup', message: device.markup }).catch(
-                  () => {}
-                )
-              }
-              variant="ghost"
-              disabled={!device.markup}
-              full
-            />
-          </View>
+          <Card title="Display">
+            {display.map((c) => (
+              <ControlField key={c.key} control={c} />
+            ))}
+          </Card>
+
+          <Card title="Vehicle signals">
+            {vehicle.map((c) => (
+              <ControlField key={c.key} control={c} />
+            ))}
+          </Card>
+
+          <WifiCard />
+
+          <Button
+            label="Open the board's own page"
+            onPress={() => router.push('/classic')}
+            variant="ghost"
+            full
+          />
         </ScrollView>
       )}
 
       <Confirm
         visible={askExit}
         title="Close MagizLED?"
-        body="The lights keep their current setting after the app closes."
+        body="The board keeps its current setting after the app closes."
         confirmLabel="Close"
         cancelLabel="Stay"
         destructive
@@ -220,107 +190,185 @@ function Panel() {
   );
 }
 
-function FormCard({
-  form,
-  busy,
-  onApply,
-}: {
-  form: FormSchema;
-  busy: boolean;
-  onApply: (values: Record<string, string | boolean>) => void;
-}) {
-  const animations = useMemo(() => form.fields.filter((f) => ANIMATION.test(f.name)), [form.fields]);
-  const messages = useMemo(() => form.fields.filter((f) => MESSAGE.test(f.name)), [form.fields]);
-  const rest = useMemo(
-    () => form.fields.filter((f) => !ANIMATION.test(f.name) && !MESSAGE.test(f.name)),
-    [form.fields]
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      {children}
+    </View>
   );
+}
 
-  const [anim, setAnim] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(animations.map((f) => [f.name, !!f.checked]))
+function ControlField({ control }: { control: Control }) {
+  const board = useBoard();
+  const value = String(board.state[control.key] ?? '');
+
+  if (control.kind === 'range') {
+    return (
+      <RangeField
+        field={{
+          name: control.field,
+          type: 'range',
+          value,
+          label: control.label,
+          min: String(control.min),
+          max: String(control.max),
+          step: String(control.step),
+        }}
+        onCommit={(v) => board.setControl(control, String(v))}
+      />
+    );
+  }
+  return (
+    <SelectField
+      field={{
+        name: control.field,
+        type: 'select-one',
+        value,
+        label: control.label,
+        options: control.options,
+      }}
+      onCommit={(v) => board.setControl(control, String(v))}
+    />
   );
+}
 
-  const heading =
-    form.submitLabel ||
-    (animations.length ? 'Animations and messages' : rest[0]?.label || `Group ${form.index + 1}`);
+function MessagesCard() {
+  const board = useBoard();
+  const slots = [
+    { key: 'text1' as const, value: board.state.text1 },
+    { key: 'text2' as const, value: board.state.text2 },
+    { key: 'text3' as const, value: board.state.text3 },
+  ];
+  return (
+    <Card title="Running text">
+      {slots.map((s, i) => (
+        <TextField
+          key={s.key}
+          field={{
+            name: s.key,
+            type: 'text',
+            value: s.value,
+            label: `Message ${i + 1}`,
+            maxLength: TEXT_MAX,
+          }}
+          onCommit={(v) => board.setRunning({ [s.key]: String(v) })}
+        />
+      ))}
+      <SwitchField
+        field={{
+          name: 'all',
+          type: 'checkbox',
+          value: '',
+          checked: board.state.all,
+          label: 'Auto cycle through the messages',
+        }}
+        onCommit={(v) => board.setRunning({ all: v === true })}
+      />
+    </Card>
+  );
+}
 
-  function setAll(on: boolean) {
-    const next = Object.fromEntries(animations.map((f) => [f.name, on]));
-    setAnim(next);
-    onApply(next);
+function AnimationsCard() {
+  const board = useBoard();
+  const on = board.state.animations.filter(Boolean).length;
+
+  function setAll(value: boolean) {
+    board.setRunning({ animations: Array(ANIMATION_COUNT).fill(value) });
   }
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
-        <Text style={styles.cardTitle} numberOfLines={1}>
-          {heading}
+        <Text style={styles.cardTitle}>Animations</Text>
+        <Text style={styles.count}>
+          {on} of {ANIMATION_COUNT} on
         </Text>
-        {busy && <ActivityIndicator size="small" color={Palette.magenta} />}
       </View>
-
-      {messages.map((f, i) => (
-        <TextField
-          key={f.name}
-          field={{ ...f, label: f.label || `Message ${i + 1}` }}
-          onCommit={(v) => onApply({ [f.name]: v })}
-        />
-      ))}
-
-      {rest.map((f) => (
-        <FieldRow key={f.name} field={f} onCommit={(v) => onApply({ [f.name]: v })} />
-      ))}
-
-      {animations.length > 0 && (
-        <View style={styles.animBlock}>
-          <View style={styles.animHead}>
-            <Text style={styles.label}>
-              {animations.length} animations
-              <Text style={styles.countFaint}>
-                {`  ${Object.values(anim).filter(Boolean).length} on`}
-              </Text>
-            </Text>
-            <View style={styles.animActions}>
-              <Button label="All" onPress={() => setAll(true)} variant="secondary" />
-              <Button label="None" onPress={() => setAll(false)} variant="secondary" />
-            </View>
-          </View>
-          <View style={styles.grid}>
-            {animations.map((f) => {
-              const n = f.name.match(ANIMATION)?.[1] ?? f.name;
-              return (
-                <TogglePill
-                  key={f.name}
-                  label={n}
-                  on={!!anim[f.name]}
-                  onPress={() => {
-                    const next = { ...anim, [f.name]: !anim[f.name] };
-                    setAnim(next);
-                    onApply({ [f.name]: next[f.name] });
-                  }}
-                />
-              );
-            })}
-          </View>
-        </View>
-      )}
+      <View style={styles.actionsRow}>
+        <Button label="All" onPress={() => setAll(true)} variant="secondary" />
+        <Button label="None" onPress={() => setAll(false)} variant="secondary" />
+      </View>
+      <View style={styles.grid}>
+        {board.state.animations.map((isOn, i) => (
+          <TogglePill
+            key={i}
+            label={String(i + 1)}
+            on={isOn}
+            onPress={() => {
+              const next = board.state.animations.slice();
+              next[i] = !next[i];
+              board.setRunning({ animations: next });
+            }}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
-function FieldRow({
-  field,
-  onCommit,
-}: {
-  field: FieldSchema;
-  onCommit: (v: string | boolean) => void;
-}) {
-  if (field.options?.length) return <SelectField field={field} onCommit={onCommit} />;
-  if (field.type === 'range') return <RangeField field={field} onCommit={onCommit} />;
-  if (field.type === 'checkbox' || field.type === 'radio')
-    return <SwitchField field={field} onCommit={onCommit} />;
-  const secure = field.type === 'password' || SECRET.test(field.name);
-  return <TextField field={field} onCommit={onCommit} secure={secure} />;
+/**
+ * Wi-Fi never auto saves. Committing a half typed SSID moves the board to a
+ * network that does not exist, and the phone loses it immediately.
+ */
+function WifiCard() {
+  const board = useBoard();
+  const [ssid, setSsid] = useState(board.state.ssid);
+  const [password, setPassword] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  const dirty = ssid.trim() !== board.state.ssid || password.length > 0;
+  const tooShort = password.length > 0 && password.length < 8;
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Wi-Fi</Text>
+      <Text style={styles.note}>
+        Saving this moves the board to another network. This phone loses it until you join the same
+        one.
+      </Text>
+
+      <TextField
+        field={{ name: 'ssid-local', type: 'text', value: ssid, label: 'Network name' }}
+        onCommit={(v) => setSsid(String(v))}
+      />
+      <TextField
+        field={{ name: 'password-local', type: 'text', value: password, label: 'Password' }}
+        onCommit={(v) => setPassword(String(v))}
+        secure={!reveal}
+      />
+      {tooShort && <Text style={styles.inlineError}>The board needs at least 8 characters.</Text>}
+
+      <View style={styles.actionsRow}>
+        <Button
+          label={reveal ? 'Hide password' : 'Show password'}
+          onPress={() => setReveal((r) => !r)}
+          variant="ghost"
+        />
+        <Button
+          label="Save Wi-Fi"
+          onPress={() => setConfirm(true)}
+          disabled={!dirty || tooShort || !ssid.trim()}
+        />
+      </View>
+
+      <Confirm
+        visible={confirm}
+        title="Move the board to this network?"
+        body={`The board will try to join "${ssid.trim()}". If the name or password is wrong, you will have to reach it another way.`}
+        confirmLabel="Move it"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          setConfirm(false);
+          board.setWifi(ssid.trim(), password);
+          setPassword('');
+        }}
+        onCancel={() => setConfirm(false)}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -341,10 +389,17 @@ const styles = StyleSheet.create({
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
   host: { ...Type.mono, color: Palette.textMuted, flexShrink: 1 },
-  centre: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Space.xl, gap: Space.md },
+  centre: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Space.xl,
+    gap: Space.md,
+  },
   centreText: { ...Type.body, color: Palette.textMuted, textAlign: 'center' },
   errorTitle: { ...Type.title, color: Palette.text, textAlign: 'center' },
-  errorActions: { alignSelf: 'stretch', gap: Space.md, marginTop: Space.md },
+  actions: { alignSelf: 'stretch', gap: Space.md, marginTop: Space.md },
+  actionsRow: { flexDirection: 'row', gap: Space.sm, flexWrap: 'wrap' },
   inlineError: { ...Type.caption, color: Palette.danger },
   content: {
     padding: Space.lg,
@@ -362,11 +417,13 @@ const styles = StyleSheet.create({
     gap: Space.lg,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardTitle: { ...Type.label, color: Palette.textFaint, textTransform: 'uppercase', letterSpacing: 1, flexShrink: 1 },
-  label: { ...Type.body, color: Palette.text },
-  countFaint: { ...Type.caption, color: Palette.textFaint },
-  animBlock: { gap: Space.md },
-  animHead: { gap: Space.sm },
-  animActions: { flexDirection: 'row', gap: Space.sm },
+  cardTitle: {
+    ...Type.label,
+    color: Palette.textFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  count: { ...Type.caption, color: Palette.magenta },
+  note: { ...Type.caption, color: Palette.textFaint },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
 });
