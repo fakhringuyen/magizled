@@ -118,6 +118,34 @@ A local Gradle build is not possible until those are installed.
 - Cloud builds (`eas build` without `--local`) sat in the free queue for 75 minutes without
   starting on 10 Sep 2026. Prefer local.
 
+- **KSP runs out of metaspace on this machine and fails the build.** Adding `expo-updates` pulled
+  in KSP, and the build died with `e: [ksp] java.lang.OutOfMemoryError: Metaspace` plus
+  `Execution failed for BuildToolsApiClasspathEntrySnapshotTransform ... > Metaspace`. Neither
+  message names memory in the headline, so it reads like a code fault. The fix lives in
+  `~/.gradle/gradle.properties`, NOT in `android/gradle.properties`, because prebuild regenerates
+  that file and Gradle reads the user one afterwards so it wins:
+
+  ```
+  org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8
+  kotlin.daemon.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=1024m
+  org.gradle.parallel=false
+  org.gradle.workers.max=2
+  ```
+
+  `kotlin.daemon.jvmargs` is the one that matters, because KSP runs inside the Kotlin daemon,
+  a separate JVM from Gradle. Build time went from a 9m 44s failure to a 9m 37s success.
+
+### Over the air updates
+
+- Updates ship with `eas update --branch preview`. CodePush is not an option; Microsoft shut the
+  hosted service down on 31 March 2025.
+- `runtimeVersion` uses the **fingerprint** policy. `eas update:configure` picks `appVersion` by
+  default, which breaks every update here because each release bumps the version.
+- Only JavaScript and assets travel this way. A new native module, a permission change, an SDK
+  upgrade or a package rename still needs a fresh APK.
+- **The board broadcasts its own Wi-Fi with no internet**, so the automatic check on launch fails
+  whenever the phone is on the board. About carries a manual Check for updates button for that.
+
 ### Testing without the board
 
 `src/lib/magiz-api.ts` holds the firmware contract, so it can be tested without hardware. The
