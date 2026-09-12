@@ -1,7 +1,14 @@
 import Slider from '@react-native-community/slider';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { PRESS_SPRING } from '@/components/motion';
 import { tap } from '@/lib/haptics';
 import { HitSize, Palette, Radius, Space, Type } from '@/theme/tokens';
 
@@ -61,6 +68,7 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
         maximumValue={max}
         step={step}
         onValueChange={setValue}
+        tapToSeek
         onSlidingComplete={(v) => {
           tap();
           debounced(String(Math.round(v)));
@@ -196,19 +204,40 @@ export function TogglePill({
   on: boolean;
   onPress: () => void;
 }) {
+  const press = useSharedValue(0);
+  const lit = useSharedValue(on ? 1 : 0);
+
+  useEffect(() => {
+    lit.value = withTiming(on ? 1 : 0, { duration: 160 });
+  }, [on, lit]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.value * 0.08 }],
+    backgroundColor: lit.value > 0.5 ? Palette.magenta : Palette.surfaceHigh,
+    borderColor: lit.value > 0.5 ? Palette.magenta : Palette.border,
+    opacity: 0.75 + lit.value * 0.25,
+  }));
+
   return (
     <Pressable
+      onPressIn={() => {
+        press.value = withSpring(1, PRESS_SPRING);
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, PRESS_SPRING);
+      }}
       onPress={() => {
         tap();
         onPress();
       }}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
-      accessibilityLabel={label}
-      style={[styles.pill, on && styles.pillOn]}>
-      <Text style={[styles.pillText, on && styles.pillTextOn]} numberOfLines={1}>
-        {label}
-      </Text>
+      accessibilityLabel={label}>
+      <Animated.View style={[styles.pill, style]}>
+        <Text style={[styles.pillText, on && styles.pillTextOn]} numberOfLines={1}>
+          {label}
+        </Text>
+      </Animated.View>
     </Pressable>
   );
 }

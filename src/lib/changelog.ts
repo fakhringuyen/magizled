@@ -8,6 +8,19 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.3.0',
+    build: 10,
+    date: '2026-09-12',
+    changes: [
+      'Buttons and animation pills answer with a spring instead of a flat colour swap.',
+      'The status dot breathes while the app is waiting, and holds still when it is not.',
+      'A tick fades in when a change lands, so the header no longer swaps text in place.',
+      'The animation count nudges when it changes, so All and None are not silent.',
+      'Cards arrive in order rather than all at once.',
+      'Version numbers no longer break over the air updates. This build is the new baseline.',
+    ],
+  },
+  {
     version: '4.2.0',
     build: 9,
     date: '2026-09-12',

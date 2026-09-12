@@ -1,6 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
+import { PRESS_SPRING } from '@/components/motion';
 import { tap } from '@/lib/haptics';
 import { BrandGradient, HitSize, Palette, Radius, Space, Type } from '@/theme/tokens';
 
@@ -26,6 +28,11 @@ export function Button({
   accessibilityHint,
 }: Props) {
   const inert = disabled || busy;
+  const press = useSharedValue(0);
+  // A spring reads as a physical press. Opacity alone reads as a flicker.
+  const motion = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.value * 0.03 }],
+  }));
   const tint =
     variant === 'danger' ? Palette.danger : variant === 'ghost' ? Palette.textMuted : Palette.text;
 
@@ -39,7 +46,13 @@ export function Button({
   );
 
   return (
-    <Pressable
+    <AnimatedPressable
+      onPressIn={() => {
+        if (!inert) press.value = withSpring(1, PRESS_SPRING);
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, PRESS_SPRING);
+      }}
       onPress={() => {
         if (inert) return;
         tap();
@@ -51,12 +64,12 @@ export function Button({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inert, busy }}
       hitSlop={6}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         full && styles.full,
         variant !== 'primary' && styles[variant],
         inert && styles.inert,
-        pressed && styles.pressed,
+        motion,
       ]}>
       {variant === 'primary' && (
         <LinearGradient
@@ -67,9 +80,11 @@ export function Button({
         />
       )}
       {body}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   base: {
@@ -85,7 +100,6 @@ const styles = StyleSheet.create({
   ghost: { backgroundColor: 'transparent' },
   danger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Palette.danger },
   inert: { opacity: 0.45 },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
   row: { flexDirection: 'row', alignItems: 'center', gap: Space.sm },
   label: { ...Type.label, fontSize: 15, letterSpacing: 0.2 },
 });

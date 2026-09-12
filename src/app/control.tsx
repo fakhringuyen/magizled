@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BoardProvider, useBoard } from '@/components/board-provider';
@@ -17,6 +18,7 @@ import { Button } from '@/components/button';
 import { Confirm } from '@/components/confirm';
 import { RangeField, SelectField, SwitchField, TextField, TogglePill } from '@/components/field';
 import { ChevronLeft, Gear, Power, Reload } from '@/components/icons';
+import { Appear, SavedFlash, StatusDot, useBump } from '@/components/motion';
 import { IconButton } from '@/components/icon-button';
 import { warn } from '@/lib/haptics';
 import { ANIMATION_COUNT, CONTROLS, TEXT_MAX, type Control } from '@/lib/magiz-api';
@@ -76,23 +78,20 @@ function Panel() {
           <ChevronLeft />
         </IconButton>
         <View style={styles.barTitle}>
-          <View
-            style={[
-              styles.dot,
-              {
-                backgroundColor:
-                  board.status === 'ready'
-                    ? Palette.online
-                    : board.status === 'loading'
-                      ? Palette.warn
-                      : Palette.danger,
-              },
-            ]}
+          <StatusDot
+            busy={board.status === 'loading' || board.saving}
+            color={
+              board.status === 'ready'
+                ? Palette.online
+                : board.status === 'loading'
+                  ? Palette.warn
+                  : Palette.danger
+            }
           />
           <Text style={styles.host} numberOfLines={1}>
-            {board.saved ? 'Saved' : board.state.statusboard || settings.address}
+            {board.state.statusboard || settings.address}
           </Text>
-          {board.saving && <ActivityIndicator size="small" color={Palette.magenta} />}
+          <SavedFlash visible={board.saved} />
         </View>
         <IconButton label="Read the board again" onPress={board.refresh}>
           <Reload />
@@ -141,28 +140,40 @@ function Panel() {
           showsVerticalScrollIndicator={false}>
           {!!board.error && <Text style={styles.inlineError}>{board.error}</Text>}
 
-          <Card title="Light">
-            {sliders.map((c) => (
-              <ControlField key={c.key} control={c} />
-            ))}
-          </Card>
+          <Appear index={0}>
+            <Card title="Light">
+              {sliders.map((c) => (
+                <ControlField key={c.key} control={c} />
+              ))}
+            </Card>
+          </Appear>
 
-          <MessagesCard />
-          <AnimationsCard />
+          <Appear index={1}>
+            <MessagesCard />
+          </Appear>
+          <Appear index={2}>
+            <AnimationsCard />
+          </Appear>
 
-          <Card title="Display">
-            {display.map((c) => (
-              <ControlField key={c.key} control={c} />
-            ))}
-          </Card>
+          <Appear index={3}>
+            <Card title="Display">
+              {display.map((c) => (
+                <ControlField key={c.key} control={c} />
+              ))}
+            </Card>
+          </Appear>
 
-          <Card title="Vehicle signals">
-            {vehicle.map((c) => (
-              <ControlField key={c.key} control={c} />
-            ))}
-          </Card>
+          <Appear index={4}>
+            <Card title="Vehicle signals">
+              {vehicle.map((c) => (
+                <ControlField key={c.key} control={c} />
+              ))}
+            </Card>
+          </Appear>
 
-          <WifiCard />
+          <Appear index={5}>
+            <WifiCard />
+          </Appear>
 
           <Button
             label="Open the board's own page"
@@ -272,6 +283,7 @@ function MessagesCard() {
 function AnimationsCard() {
   const board = useBoard();
   const on = board.state.animations.filter(Boolean).length;
+  const bump = useBump(on);
 
   function setAll(value: boolean) {
     board.setRunning({ animations: Array(ANIMATION_COUNT).fill(value) });
@@ -281,9 +293,9 @@ function AnimationsCard() {
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <Text style={styles.cardTitle}>Animations</Text>
-        <Text style={styles.count}>
+        <Animated.Text style={[styles.count, bump]}>
           {on} of {ANIMATION_COUNT} on
-        </Text>
+        </Animated.Text>
       </View>
       <View style={styles.actionsRow}>
         <Button label="All" onPress={() => setAll(true)} variant="secondary" />
@@ -380,7 +392,6 @@ const styles = StyleSheet.create({
     gap: Space.sm,
     paddingHorizontal: Space.sm,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
   host: { ...Type.mono, color: Palette.textMuted, flexShrink: 1 },
   centre: {
     flex: 1,
