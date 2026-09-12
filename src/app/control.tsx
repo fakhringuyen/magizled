@@ -304,6 +304,16 @@ function AnimationsCard() {
     board.setRunning({ animations: Array(ANIMATION_COUNT).fill(value) });
   }
 
+  /**
+   * The firmware names none of the 41 animations, so the only honest way to
+   * learn one is to watch it alone on the board.
+   */
+  function solo(index: number) {
+    const only = Array(ANIMATION_COUNT).fill(false);
+    only[index] = true;
+    board.setRunning({ animations: only, all: false });
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -316,6 +326,9 @@ function AnimationsCard() {
         <Button label="All" onPress={() => setAll(true)} variant="secondary" />
         <Button label="None" onPress={() => setAll(false)} variant="secondary" />
       </View>
+      <Text style={styles.hint}>
+        Hold a number to run only that one, so you can see what it looks like on the board.
+      </Text>
       <View style={styles.grid}>
         {board.state.animations.map((isOn, i) => (
           <TogglePill
@@ -327,6 +340,7 @@ function AnimationsCard() {
               next[i] = !next[i];
               board.setRunning({ animations: next });
             }}
+            onLongPress={() => solo(i)}
           />
         ))}
       </View>
@@ -445,4 +459,5 @@ const styles = StyleSheet.create({
   count: { ...Type.caption, color: Palette.magenta },
   note: { ...Type.caption, color: Palette.textFaint },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
+  hint: { ...Type.caption, color: Palette.textFaint },
 });

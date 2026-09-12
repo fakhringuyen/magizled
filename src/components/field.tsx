@@ -199,10 +199,12 @@ export function TogglePill({
   label,
   on,
   onPress,
+  onLongPress,
 }: {
   label: string;
   on: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
 }) {
   const press = useSharedValue(0);
   const lit = useSharedValue(on ? 1 : 0);
@@ -230,9 +232,18 @@ export function TogglePill({
         tap();
         onPress();
       }}
+      onLongPress={
+        onLongPress &&
+        (() => {
+          tap();
+          onLongPress();
+        })
+      }
+      delayLongPress={450}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
-      accessibilityLabel={label}>
+      accessibilityLabel={label}
+      accessibilityHint={onLongPress ? 'Hold to run only this animation' : undefined}>
       <Animated.View style={[styles.pill, style]}>
         <Text style={[styles.pillText, on && styles.pillTextOn]} numberOfLines={1}>
           {label}

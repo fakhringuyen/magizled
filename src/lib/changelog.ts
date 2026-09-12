@@ -8,6 +8,16 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.4.1',
+    build: 11,
+    date: '2026-09-12',
+    changes: [
+      'Arrived over the air. No APK was installed for this one.',
+      'Hold an animation number to run only that one, so you can see what it is.',
+      'The firmware names none of the 41, so watching one alone is the only honest way to tell.',
+    ],
+  },
+  {
     version: '4.4.0',
     build: 11,
     date: '2026-09-12',
