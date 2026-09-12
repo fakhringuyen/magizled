@@ -28,6 +28,9 @@ type DeviceApi = {
   forms: FormSchema[];
   /** Raw body of the board's own /data poll, if it makes one. */
   data: string | null;
+  /** The page's inline script and form markup, for mapping the real API. */
+  inline: string;
+  markup: string;
   /** Fills the named fields in that form and submits it. */
   apply: (formIndex: number, values: Record<string, string | boolean>) => void;
   /** True for a moment after a change lands, for the saved tick. */
@@ -58,6 +61,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState('');
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [data, setData] = useState<string | null>(null);
+  const [inline, setInline] = useState('');
+  const [markup, setMarkup] = useState('');
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [savingForm, setSavingForm] = useState<number | null>(null);
@@ -73,6 +78,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       case 'schema':
         setTitle(msg.title);
         setForms(msg.forms);
+        if (msg.inline) setInline(msg.inline);
+        if (msg.markup) setMarkup(msg.markup);
         setStatus('ready');
         setError(null);
         break;
@@ -112,8 +119,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useMemo<DeviceApi>(
-    () => ({ status, error, title, forms, data, apply, saved, savingForm, reload }),
-    [status, error, title, forms, data, apply, saved, savingForm, reload]
+    () => ({ status, error, title, forms, data, inline, markup, apply, saved, savingForm, reload }),
+    [status, error, title, forms, data, inline, markup, apply, saved, savingForm, reload]
   );
 
   return (

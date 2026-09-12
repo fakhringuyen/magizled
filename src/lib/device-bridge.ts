@@ -29,7 +29,15 @@ export type FormSchema = {
 };
 
 export type BridgeMessage =
-  | { kind: 'schema'; title: string; forms: FormSchema[] }
+  | {
+      kind: 'schema';
+      title: string;
+      forms: FormSchema[];
+      /** Inline script source, where the firmware's mode numbers live. */
+      inline?: string;
+      /** Form markup, so labels can be mapped exactly instead of guessed. */
+      markup?: string;
+    }
   | { kind: 'ack'; form: number; ok: boolean; error?: string }
   | { kind: 'data'; body: string }
   | { kind: 'log'; text: string };
@@ -55,22 +63,38 @@ export const BRIDGE_JS = `
   function post(p) {
     try { window.ReactNativeWebView.postMessage(JSON.stringify(p)); } catch (e) {}
   }
-  function log(t) { post({ kind: 'log', text: String(t).slice(0, 300) }); }
-
+  function clean(t) {
+    return String(t || '').replace(/\\s+/g, ' ').trim().slice(0, 40);
+  }
+  // Text belonging to this node alone, with nested controls stripped out.
+  function ownText(node) {
+    if (!node) return '';
+    var c = node.cloneNode(true);
+    [].slice.call(c.querySelectorAll('input,select,textarea,button,script,style'))
+      .forEach(function (n) { n.parentNode && n.parentNode.removeChild(n); });
+    return clean(c.textContent);
+  }
   function labelFor(el) {
     if (el.id) {
       var l = document.querySelector('label[for="' + el.id + '"]');
-      if (l && l.textContent.trim()) return l.textContent.trim().slice(0, 48);
+      if (l && clean(l.textContent)) return clean(l.textContent);
     }
-    var p = el.closest('label');
-    if (p && p.textContent.trim()) return p.textContent.trim().slice(0, 48);
-    var row = el.closest('tr,div,p,li');
-    if (row) {
-      var t = (row.textContent || '').trim().replace(/\\s+/g, ' ');
-      if (t && t.length < 60) return t.slice(0, 48);
+    var wrap = el.closest('label');
+    if (wrap && ownText(wrap)) return ownText(wrap);
+    // Firmware pages wrap a control several levels deep and put the caption in
+    // a sibling cell, so climb the tree instead of checking one sibling.
+    var node = el;
+    for (var depth = 0; depth < 4 && node; depth++) {
+      var sib = node.previousElementSibling;
+      while (sib) {
+        var t = ownText(sib);
+        if (t && t.length <= 40) return t;
+        sib = sib.previousElementSibling;
+      }
+      var own = ownText(node.parentElement);
+      if (own && own.length <= 40) return own;
+      node = node.parentElement;
     }
-    var prev = el.previousElementSibling;
-    if (prev && prev.textContent.trim()) return prev.textContent.trim().slice(0, 48);
     return el.name || el.id || '';
   }
 
@@ -113,7 +137,17 @@ export const BRIDGE_JS = `
           submitLabel: submitLabelOf(form)
         };
       });
-      post({ kind: 'schema', title: document.title || '', forms: forms });
+      var inline = [].slice.call(document.scripts)
+        .filter(function (sc) { return !sc.src && sc.textContent; })
+        .map(function (sc) { return sc.textContent; })
+        .join('\\n/* --- next script --- */\\n')
+        .slice(0, 20000);
+      var markup = [].slice.call(document.forms)
+        .map(function (f, n) { return '<!-- form ' + n + ' -->\\n' + f.outerHTML; })
+        .join('\\n')
+        .slice(0, 20000);
+      post({ kind: 'schema', title: document.title || '', forms: forms,
+             inline: inline, markup: markup });
     } catch (e) { log('schema failed: ' + e.message); }
   }
 

@@ -1,7 +1,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, BackHandler, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -60,6 +60,17 @@ function Panel() {
   );
 
   const saved = device.saved;
+
+  // Nine cards each holding one nameless field read as noise, so the
+  // single-field forms collapse into one list and keep their own form index.
+  const simple = useMemo(
+    () =>
+      device.forms
+        .filter((f) => f.fields.length === 1)
+        .map((form) => ({ form, field: form.fields[0] })),
+    [device.forms]
+  );
+  const rich = useMemo(() => device.forms.filter((f) => f.fields.length > 1), [device.forms]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -132,7 +143,20 @@ function Panel() {
           showsVerticalScrollIndicator={false}>
           {device.error && <Text style={styles.inlineError}>{device.error}</Text>}
 
-          {device.forms.map((form) => (
+          {simple.length > 0 && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Board settings</Text>
+              {simple.map(({ form, field }) => (
+                <FieldRow
+                  key={`${form.index}-${field.name}`}
+                  field={field}
+                  onCommit={(v) => device.apply(form.index, { [field.name]: v })}
+                />
+              ))}
+            </View>
+          )}
+
+          {rich.map((form) => (
             <FormCard
               key={form.index}
               form={form}
@@ -141,13 +165,41 @@ function Panel() {
             />
           ))}
 
-          <Button
-            label="Open the board's own page"
-            onPress={() => router.push('/classic')}
-            variant="ghost"
-            accessibilityHint="Shows the original firmware page, in case a control is missing here"
-            full
-          />
+          <View style={{ gap: Space.md }}>
+            <Button
+              label="Open the board's own page"
+              onPress={() => router.push('/classic')}
+              variant="ghost"
+              accessibilityHint="Shows the original firmware page, in case a control is missing here"
+              full
+            />
+            <Button
+              label={
+                device.inline
+                  ? `Share page script (${device.inline.length} chars)`
+                  : 'No page script captured'
+              }
+              onPress={() =>
+                Share.share({ title: 'MagizLED page script', message: device.inline }).catch(
+                  () => {}
+                )
+              }
+              variant="ghost"
+              disabled={!device.inline}
+              full
+            />
+            <Button
+              label={device.markup ? `Share form markup (${device.markup.length} chars)` : 'No markup captured'}
+              onPress={() =>
+                Share.share({ title: 'MagizLED form markup', message: device.markup }).catch(
+                  () => {}
+                )
+              }
+              variant="ghost"
+              disabled={!device.markup}
+              full
+            />
+          </View>
         </ScrollView>
       )}
 
