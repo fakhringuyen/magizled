@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '@/components/brand-mark';
 import { Close } from '@/components/icons';
 import { IconButton } from '@/components/icon-button';
+import { UpdateCard } from '@/components/update-card';
 import { CHANGELOG } from '@/lib/changelog';
 import { readInfo, type BoardInfo } from '@/lib/magiz-api';
 import { toUrl, useSettings } from '@/lib/settings';
@@ -81,6 +82,8 @@ export default function AboutScreen() {
             </Text>
           )}
         </View>
+
+        <UpdateCard />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>What changed</Text>
