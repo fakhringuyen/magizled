@@ -13,7 +13,7 @@ const MESSAGE: Record<Phase, string> = {
   checking: 'Asking the update server…',
   none: 'This is the newest version.',
   downloading: 'Downloading…',
-  ready: 'Downloaded. The restart prompt is waiting.',
+  ready: 'Downloaded. Restart to use it.',
   failed: '',
 };
 
@@ -85,14 +85,26 @@ export function UpdateCard() {
         </View>
       )}
 
-      <Button
-        label={busy ? 'Checking' : 'Check for updates'}
-        onPress={check}
-        busy={busy}
-        variant="secondary"
-        disabled={phase === 'ready'}
-        full
-      />
+      {/*
+        The restart action lives here as well as in the app wide prompt.
+        This screen is a modal route, and a modal opened from the root renders
+        behind it, so relying on the prompt alone left nothing to press.
+      */}
+      {phase === 'ready' ? (
+        <Button
+          label="Restart now"
+          onPress={() => Updates.reloadAsync().catch(() => {})}
+          full
+        />
+      ) : (
+        <Button
+          label={busy ? 'Checking' : 'Check for updates'}
+          onPress={check}
+          busy={busy}
+          variant="secondary"
+          full
+        />
+      )}
 
       <Text style={styles.note}>
         Only the app&apos;s screens and logic arrive this way. A new Android package still needs a

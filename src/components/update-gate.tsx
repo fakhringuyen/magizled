@@ -1,6 +1,8 @@
 import * as Updates from 'expo-updates';
 import { useEffect, useState } from 'react';
 
+import { usePathname } from 'expo-router';
+
 import { Confirm } from '@/components/confirm';
 import { success } from '@/lib/haptics';
 
@@ -13,12 +15,17 @@ import { success } from '@/lib/haptics';
  */
 export function UpdateGate() {
   const { isUpdatePending } = Updates.useUpdates();
+  const pathname = usePathname();
   const [dismissed, setDismissed] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
+  // About is a modal route. A modal opened from the root renders behind it, so
+  // showing this there would be invisible. That screen carries its own button.
+  const coveredByModal = pathname === '/about' || pathname === '/settings';
+
   // Derived, not stored. Keeping it in state meant setting it from an effect,
   // which cascades a second render for something already known at render time.
-  const visible = isUpdatePending && !dismissed && !restarting;
+  const visible = isUpdatePending && !dismissed && !restarting && !coveredByModal;
 
   useEffect(() => {
     if (visible) success();

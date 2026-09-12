@@ -8,6 +8,16 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.4.3',
+    build: 11,
+    date: '2026-09-12',
+    changes: [
+      'Fixed: after Check for updates the restart prompt never appeared.',
+      'About is a modal screen, and the prompt opened behind it. The button now sits on the card itself.',
+      'The app wide prompt still handles updates that download on their own.',
+    ],
+  },
+  {
     version: '4.4.2',
     build: 11,
     date: '2026-09-12',
