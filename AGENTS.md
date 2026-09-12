@@ -37,7 +37,8 @@ The decoded original is described there; the APK itself is not in this repo.
 - `npm run web` serves the web build at http://localhost:8081.
 - `npx expo run:ios` builds a development build with Xcode and CocoaPods.
   Use it once a library is not inside Expo Go.
-- `npm run android` fails until Android Studio and the SDK are installed. They are not yet.
+- `npm run android` needs a local Android build. The SDK and JDK 17 are installed since
+  10 Sep 2026. Android Studio is NOT installed and is not planned.
 
 ### Node
 
@@ -77,8 +78,9 @@ width page. `src/app/control.tsx` injects a viewport tag only when the page has 
 
 ### Android APK
 
-Builds run on EAS Cloud. This Mac has no JDK, no Android SDK, and no Android Studio.
-A local Gradle build is not possible until those are installed.
+Builds run on EAS Cloud or locally. **Corrected 12 Sep 2026.** This Mac HAS JDK 17, the Android
+SDK and platform-tools. It does not have Android Studio, and it does not have an emulator or any
+system image. Local Gradle builds work. See Building the APK below.
 
 | Command | Profile | Output |
 |---|---|---|
@@ -101,7 +103,7 @@ A local Gradle build is not possible until those are installed.
   Back it up with `eas credentials`. A lost keystore blocks all future Play Store updates.
 - `versionCode` starts at 1 in `app.json`. The production profile increments it automatically.
 - Install the APK on the phone by opening the EAS build link on the phone itself.
-  `adb install` needs platform-tools, which are not installed.
+  `adb install <file>.apk` also works now, because platform-tools 37.0.1 is installed.
 
 ### Building the APK
 
@@ -134,6 +136,13 @@ A local Gradle build is not possible until those are installed.
 
   `kotlin.daemon.jvmargs` is the one that matters, because KSP runs inside the Kotlin daemon,
   a separate JVM from Gradle. Build time went from a 9m 44s failure to a 9m 37s success.
+
+- **The NDK is `27.1.12297006` (r27b), and it is the ONLY one on this Mac.** React Native 0.86.3
+  pins it in `node_modules/react-native/gradle/libs.versions.toml`, and expo-modules-autolinking
+  falls back to the same number in `ExpoRootProjectPlugin.kt`. `ndk;27.0.12077973` was deleted on
+  12 Sep 2026 to free 2.4 GB. Reinstall any NDK with `sdkmanager "ndk;<version>"`.
+- **`scrcpy` 4.1 mirrors and controls the phone from the Mac.** Run `adb reverse tcp:8081 tcp:8081`
+  first so the phone reaches Metro over USB.
 
 ### Over the air updates
 
