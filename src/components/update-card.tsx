@@ -13,7 +13,7 @@ const MESSAGE: Record<Phase, string> = {
   checking: 'Asking the update server…',
   none: 'This is the newest version.',
   downloading: 'Downloading…',
-  ready: 'Downloaded. Restart to use it.',
+  ready: 'Downloaded. The restart prompt is waiting.',
   failed: '',
 };
 
@@ -85,17 +85,14 @@ export function UpdateCard() {
         </View>
       )}
 
-      {phase === 'ready' ? (
-        <Button label="Restart now" onPress={() => Updates.reloadAsync().catch(() => {})} full />
-      ) : (
-        <Button
-          label={busy ? 'Checking' : 'Check for updates'}
-          onPress={check}
-          busy={busy}
-          variant="secondary"
-          full
-        />
-      )}
+      <Button
+        label={busy ? 'Checking' : 'Check for updates'}
+        onPress={check}
+        busy={busy}
+        variant="secondary"
+        disabled={phase === 'ready'}
+        full
+      />
 
       <Text style={styles.note}>
         Only the app&apos;s screens and logic arrive this way. A new Android package still needs a

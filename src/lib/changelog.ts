@@ -8,6 +8,16 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.4.0',
+    build: 11,
+    date: '2026-09-12',
+    changes: [
+      'A downloaded update now announces itself with a prompt, anywhere in the app.',
+      'The prompt offers Restart now or Later, and asks once rather than on every screen.',
+      'The update channel is renamed from preview to stable. It was only ever the build profile\u2019s name.',
+    ],
+  },
+  {
     version: '4.3.1',
     build: 10,
     date: '2026-09-12',

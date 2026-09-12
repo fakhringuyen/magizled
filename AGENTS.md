@@ -152,6 +152,13 @@ system image. Local Gradle builds work. See Building the APK below.
   default, which breaks every update here because each release bumps the version.
 - Only JavaScript and assets travel this way. A new native module, a permission change, an SDK
   upgrade or a package rename still needs a fresh APK.
+- **Editing `eas.json` breaks over the air compatibility**, even a change that touches no native
+  code. Measured 12 Sep 2026: renaming the channel from `preview` to `stable` moved the
+  fingerprint from `0cf286bc...` to `d01bf8bf...`, because `eas.json` is a fingerprint source.
+  Any edit there means the next APK is a new baseline and older installs stop receiving updates.
+- **Always compare the fingerprint before publishing.** `npx expo-updates fingerprint:generate
+  --platform android` against `assets/fingerprint` inside the installed APK. A mismatch shows up
+  for the user as "This is the newest version" forever, with nothing in the app saying why.
 - **The board broadcasts its own Wi-Fi with no internet**, so the automatic check on launch fails
   whenever the phone is on the board. About carries a manual Check for updates button for that.
 

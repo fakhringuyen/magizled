@@ -5,6 +5,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { UpdateGate } from '@/components/update-gate';
 import { Palette } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -33,6 +34,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: Palette.bg }}>
       <ThemeProvider value={theme}>
         <StatusBar style="light" />
+        <UpdateGate />
         <Stack
           screenOptions={{
             headerShown: false,
