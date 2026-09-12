@@ -14,6 +14,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AnimationSheet } from '@/components/animation-sheet';
 import { BoardProvider, useBoard } from '@/components/board-provider';
 import { Button } from '@/components/button';
 import { Confirm } from '@/components/confirm';
@@ -23,6 +24,7 @@ import { Appear, SavedFlash, StatusDot, useBump } from '@/components/motion';
 import { IconButton } from '@/components/icon-button';
 import { warn } from '@/lib/haptics';
 import { ANIMATION_COUNT, CONTROLS, TEXT_MAX, type Control } from '@/lib/magiz-api';
+import { labelFor, useAnimationNames } from '@/lib/animation-names';
 import { useSettings } from '@/lib/settings';
 import { Palette, Radius, Space, Type } from '@/theme/tokens';
 
@@ -297,11 +299,19 @@ function MessagesCard() {
 
 function AnimationsCard() {
   const board = useBoard();
+  const { names, rename } = useAnimationNames();
+  const [open, setOpen] = useState<number | null>(null);
   const on = board.state.animations.filter(Boolean).length;
   const bump = useBump(on);
 
   function setAll(value: boolean) {
     board.setRunning({ animations: Array(ANIMATION_COUNT).fill(value) });
+  }
+
+  function toggle(index: number) {
+    const next = board.state.animations.slice();
+    next[index] = !next[index];
+    board.setRunning({ animations: next });
   }
 
   /**
@@ -327,23 +337,33 @@ function AnimationsCard() {
         <Button label="None" onPress={() => setAll(false)} variant="secondary" />
       </View>
       <Text style={styles.hint}>
-        Hold a number to run only that one, so you can see what it looks like on the board.
+        Hold one to run it alone and give it a name.
       </Text>
       <View style={styles.grid}>
         {board.state.animations.map((isOn, i) => (
           <TogglePill
             key={i}
-            label={String(i + 1)}
+            label={labelFor(names, i)}
             on={isOn}
-            onPress={() => {
-              const next = board.state.animations.slice();
-              next[i] = !next[i];
-              board.setRunning({ animations: next });
-            }}
-            onLongPress={() => solo(i)}
+            onPress={() => toggle(i)}
+            onLongPress={() => setOpen(i)}
           />
         ))}
       </View>
+
+      <AnimationSheet
+        key={open ?? 'closed'}
+        index={open}
+        currentName={open === null ? '' : (names[open] ?? '')}
+        isOn={open === null ? false : board.state.animations[open]}
+        onSolo={() => open !== null && solo(open)}
+        onToggle={() => open !== null && toggle(open)}
+        onRename={(n) => {
+          if (open !== null) rename(open, n);
+          setOpen(null);
+        }}
+        onClose={() => setOpen(null)}
+      />
     </View>
   );
 }
