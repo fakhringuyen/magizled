@@ -67,7 +67,9 @@ export default function SettingsScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      // Edge to edge is always on in SDK 57, so the Android window no longer
+      // resizes for the keyboard and undefined behaviour meant a plain View.
+      behavior="padding">
       <View style={[styles.bar, { paddingTop: insets.top + Space.sm }]}>
         <Text style={styles.barTitle}>Settings</Text>
         <IconButton label="Close settings" onPress={() => router.back()}>
@@ -192,6 +194,8 @@ function Row({
         trackColor={{ false: Palette.borderStrong, true: Palette.violet }}
         thumbColor={Palette.text}
         accessibilityLabel={title}
+        accessibilityHint={body}
+        ios_backgroundColor={Palette.surfaceHigh}
       />
     </View>
   );
@@ -232,7 +236,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.borderStrong,
     paddingHorizontal: Space.lg,
-    height: 52,
+    minHeight: 52,
   },
   inputBad: { borderColor: Palette.danger },
   help: { ...Type.caption, color: Palette.textFaint },

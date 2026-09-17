@@ -76,7 +76,11 @@ function Panel() {
   const display = pickers.filter((c) => c.key === 'font' || c.key === 'jl');
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.screen,
+        { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right },
+      ]}>
       <View style={styles.bar}>
         <IconButton label="Back to connect" onPress={() => router.replace('/')}>
           <ChevronLeft />
@@ -155,12 +159,16 @@ function Panel() {
               progressBackgroundColor={Palette.surface}
             />
           }>
-          {!!board.error && <Text style={styles.inlineError}>{board.error}</Text>}
+          {!!board.error && (
+            <Text style={styles.inlineError} accessibilityLiveRegion="assertive">
+              {board.error}
+            </Text>
+          )}
 
           <Appear index={0}>
             <Card title="Light">
               {sliders.map((c) => (
-                <ControlField key={c.key} control={c} />
+                <ControlField key={`${c.key}:${board.state[c.key]}`} control={c} />
               ))}
             </Card>
           </Appear>
@@ -175,7 +183,7 @@ function Panel() {
           <Appear index={3}>
             <Card title="Display">
               {display.map((c) => (
-                <ControlField key={c.key} control={c} />
+                <ControlField key={`${c.key}:${board.state[c.key]}`} control={c} />
               ))}
             </Card>
           </Appear>
@@ -183,7 +191,7 @@ function Panel() {
           <Appear index={4}>
             <Card title="Vehicle signals">
               {vehicle.map((c) => (
-                <ControlField key={c.key} control={c} />
+                <ControlField key={`${c.key}:${board.state[c.key]}`} control={c} />
               ))}
             </Card>
           </Appear>
@@ -227,6 +235,11 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+/**
+ * Every field seeds its value once and keeps its own copy, so a refresh used
+ * to leave stale numbers on screen while the provider held the board's real
+ * ones. Keying by the value remounts the field whenever the board disagrees.
+ */
 function ControlField({ control }: { control: Control }) {
   const board = useBoard();
   const value = String(board.state[control.key] ?? '');
@@ -272,7 +285,7 @@ function MessagesCard() {
     <Card title="Running text">
       {slots.map((s, i) => (
         <TextField
-          key={s.key}
+          key={`${s.key}:${s.value}`}
           field={{
             name: s.key,
             type: 'text',
@@ -284,6 +297,7 @@ function MessagesCard() {
         />
       ))}
       <SwitchField
+        key={`all:${board.state.all}`}
         field={{
           name: 'all',
           type: 'checkbox',
@@ -344,6 +358,7 @@ function AnimationsCard() {
           <TogglePill
             key={i}
             label={labelFor(names, i)}
+            a11yLabel={names[i] ? `Animation ${i + 1}, ${names[i]}` : `Animation ${i + 1}`}
             on={isOn}
             onPress={() => toggle(i)}
             onLongPress={() => setOpen(i)}
@@ -389,13 +404,20 @@ function WifiCard() {
         one.
       </Text>
 
+      {/*
+        These used to arrive through the 900 ms debounce, so Save could fire
+        with the previous network name and move the board to the wrong one.
+        onChange is immediate; nothing here talks to the board until Save.
+      */}
       <TextField
         field={{ name: 'ssid-local', type: 'text', value: ssid, label: 'Network name' }}
         onCommit={(v) => setSsid(String(v))}
+        onChange={(v) => setSsid(String(v))}
       />
       <TextField
         field={{ name: 'password-local', type: 'text', value: password, label: 'Password' }}
         onCommit={(v) => setPassword(String(v))}
+        onChange={(v) => setPassword(String(v))}
         secure
       />
       {tooShort && <Text style={styles.inlineError}>The board needs at least 8 characters.</Text>}

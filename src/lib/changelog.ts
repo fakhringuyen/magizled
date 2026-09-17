@@ -8,6 +8,25 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.5.0',
+    build: 12,
+    date: '2026-09-17',
+    changes: [
+      'Fixed: holding an animation acted as a tap. React Native cancels the hold after 1.6 mm of finger drift but keeps the press alive.',
+      'Fixed: a message holding a percent sign made the whole panel report the board as unreachable.',
+      'Fixed: "FISH & CHIPS" came back from the board as "FISH ".',
+      'Fixed: a read already in flight could undo an animation you had just switched on.',
+      'Fixed: pull to refresh left every slider and dropdown showing the old value.',
+      'Fixed: Save Wi-Fi could send the previous network name if you typed and saved quickly.',
+      'Fixed: a failed save erased its own error message within a second.',
+      'Fixed: leaving a screen within a second of typing threw the edit away in silence.',
+      'A screen reader can now reach the buttons inside every dialog. It could not before.',
+      'Faint text, button labels and control outlines now meet the contrast standard.',
+      'Animation buttons are 48 points and say "Animation 7" rather than "7".',
+      'The keyboard no longer covers the Save button on Android.',
+    ],
+  },
+  {
     version: '4.4.3',
     build: 11,
     date: '2026-09-12',

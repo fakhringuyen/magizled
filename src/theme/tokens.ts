@@ -10,14 +10,23 @@ export const Palette = {
   surfaceHigh: '#1E1E2B',
   border: '#282838',
   borderStrong: '#3A3A50',
+  // The outline that identifies a control needs 3:1. This measures 3.16:1 on
+  // surfaceHigh, where the old borderStrong measured 1.14:1.
+  outline: '#6A6A88',
 
   text: '#F4F4F8',
   textMuted: '#9A9AB4',
-  textFaint: '#63637C',
+  // Was #63637C, which measured 2.83:1 on surfaceHigh. Every use is 12px or
+  // 13px text, so it needs 4.5:1. This measures 4.90:1 there and 5.39:1 on
+  // surface.
+  textFaint: '#8A8AA4',
 
   blue: '#4890F0',
   violet: '#9078D8',
   magenta: '#F048C0',
+
+  /** Text and icons that sit on a brand fill. White measured 2.93:1 on blue. */
+  onBrand: '#07070C',
 
   online: '#3DDC97',
   warn: '#FFB020',

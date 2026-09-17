@@ -146,13 +146,54 @@ export const EMPTY_STATE: BoardState = {
  * The board also returns the Wi-Fi password here in clear text; it is dropped
  * on the way in so the app never holds it.
  */
+/**
+ * The board echoes text back raw, so a message holding "50% OFF" reaches here
+ * as a broken escape. decodeURIComponent throws URIError on that, and the
+ * throw used to travel all the way up and show "Cannot reach the board" for a
+ * board that answered perfectly.
+ */
+function safeDecode(raw: string): string {
+  const plus = raw.replace(/\+/g, ' ');
+  try {
+    return decodeURIComponent(plus);
+  } catch {
+    return plus;
+  }
+}
+
+/** Every key the board sends. Used to tell a separator from a literal "&". */
+const KEYS = new Set<string>([
+  'rem', 'sein', 'font', 'jl', 'speed', 'bright', 'durasi',
+  'text1', 'text2', 'text3', 'ssid', 'password', 'all', 'statusboard',
+  ...Array.from({ length: ANIMATION_COUNT }, (_, i) => `animation${i + 1}`),
+]);
+
+/**
+ * The board does not escape its values, so a message holding "FISH & CHIPS"
+ * arrives with a separator inside it. Splitting on every "&" truncated the
+ * message and dropped the rest. A fragment only starts a new pair when it
+ * begins with a key the board actually sends.
+ */
+function splitPairs(body: string): string[] {
+  const out: string[] = [];
+  for (const frag of body.split('&')) {
+    const key = frag.slice(0, frag.indexOf('='));
+    if (out.length > 0 && !(frag.includes('=') && KEYS.has(key))) {
+      out[out.length - 1] += `&${frag}`;
+    } else {
+      out.push(frag);
+    }
+  }
+  return out;
+}
+
 export function parseData(body: string): BoardState {
   const s: BoardState = { ...EMPTY_STATE, animations: Array(ANIMATION_COUNT).fill(false) };
-  for (const part of body.split('&')) {
+  for (const part of splitPairs(body)) {
     const i = part.indexOf('=');
     if (i < 0) continue;
     const k = part.slice(0, i);
-    const v = decodeURIComponent(part.slice(i + 1).replace(/\+/g, ' '));
+    const v = safeDecode(part.slice(i + 1));
     const anim = /^animation(\d+)$/.exec(k);
     if (anim) {
       const n = Number(anim[1]);
@@ -284,7 +325,9 @@ export async function readInfo(base: string, timeoutMs = 5000): Promise<BoardInf
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), timeoutMs);
   try {
-    const html = await (await fetch(base + '/', { signal: ac.signal })).text();
+    const res = await fetch(base + '/', { signal: ac.signal });
+    if (!res.ok) throw new Error(`The board answered HTTP ${res.status}.`);
+    const html = await res.text();
     const title = /<title[^>]*>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim() ?? '';
     const version = /\bv\.?\s?(\d+\.\d+(?:\.\d+)?)\b/i.exec(html)?.[0]?.trim() ?? '';
     const vendor =

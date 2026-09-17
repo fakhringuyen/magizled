@@ -101,7 +101,11 @@ export default function ConnectScreen() {
       }
     });
     const appSub = AppState.addEventListener('change', (s) => {
-      if (s === 'active' && focused.current) check();
+      if (s !== 'active' || !focused.current) return;
+      // Without this the old handle is lost and its 5 second loop keeps
+      // running, so the probe rate multiplies with every foreground.
+      if (timer.current) clearTimeout(timer.current);
+      check();
     });
     return () => {
       netSub.remove();

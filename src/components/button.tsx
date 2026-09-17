@@ -33,13 +33,21 @@ export function Button({
   const motion = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - press.value * 0.03 }],
   }));
+  // White on the brand gradient measured 2.93:1 at the blue end. Dark ink
+  // measures 6.24:1 there and 5.61:1 in the middle.
   const tint =
-    variant === 'danger' ? Palette.danger : variant === 'ghost' ? Palette.textMuted : Palette.text;
+    variant === 'primary'
+      ? Palette.onBrand
+      : variant === 'danger'
+        ? Palette.danger
+        : variant === 'ghost'
+          ? Palette.textMuted
+          : Palette.text;
 
   const body = (
     <View style={styles.row}>
       {busy && <ActivityIndicator size="small" color={tint} />}
-      <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: tint }]} numberOfLines={2}>
         {label}
       </Text>
     </View>

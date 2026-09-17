@@ -68,6 +68,12 @@ export async function probe(url: string, timeoutMs = 4000): Promise<Reachability
     if (net && net.type !== Network.NetworkStateType.WIFI && net.isConnected) {
       return { state: 'offline', reason: 'not-wifi' };
     }
+    // A refusal on Wi-Fi means something answered and it was not the board.
+    // Calling that a timeout sent people hunting a mobile data problem.
+    const msg = (err as Error)?.message ?? '';
+    if (/refus|econnrefused|reset/i.test(msg)) {
+      return { state: 'offline', reason: 'refused' };
+    }
     return { state: 'offline', reason: 'timeout' };
   } finally {
     clearTimeout(timer);

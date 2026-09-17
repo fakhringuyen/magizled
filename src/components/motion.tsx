@@ -82,7 +82,11 @@ export function SavedFlash({ visible }: { visible: boolean }) {
   }));
 
   return (
-    <Animated.View style={[styles.saved, style]} pointerEvents="none">
+    <Animated.View
+      style={[styles.saved, style]}
+      pointerEvents="none"
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={visible ? 'Saved' : ''}>
       <View style={styles.tick} />
     </Animated.View>
   );

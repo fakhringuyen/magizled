@@ -50,7 +50,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<BoardState>(EMPTY_STATE);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(0);
   const [saved, setSaved] = useState(false);
 
   const stateRef = useRef(state);
@@ -82,8 +82,13 @@ export function BoardProvider({ children }: { children: ReactNode }) {
       const next = await readState(base);
       if (id !== reqId.current) return;
       setState(next);
-      setStatus('ready');
-      setError(null);
+      // Clear only a connection error. A write can fail while reads still
+      // succeed, and clearing here used to make that failure vanish within
+      // the read time, leaving the user no sign either way.
+      setStatus((prev) => {
+        if (prev !== 'ready') setError(null);
+        return 'ready';
+      });
     } catch (e) {
       if (id !== reqId.current) return;
       setStatus('error');
@@ -104,18 +109,23 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const run = useCallback(
     async (send: () => Promise<void>, optimistic: Partial<BoardState>) => {
+      // A read started before this write would otherwise land afterwards and
+      // put the old value back, and stateRef would then feed that stale value
+      // into the next mode 7 payload, silently clearing what the user just set.
+      reqId.current += 1;
       setState((s) => ({ ...s, ...optimistic }));
-      setSaving(true);
+      setSaving((n) => n + 1);
       setError(null);
       try {
         await send();
         flashSaved();
       } catch (e) {
         setError((e as Error)?.message || 'The board rejected that change.');
-        // Put the board's real values back, so the UI never lies.
+        // Put the board's real values back, so the UI never lies. refresh no
+        // longer clears the error, so the message survives the read.
         refresh();
       } finally {
-        setSaving(false);
+        setSaving((n) => Math.max(0, n - 1));
       }
     },
     [flashSaved, refresh]
@@ -138,7 +148,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
 
   const setWifi = useCallback(
     async (ssid: string, password: string) => {
-      setSaving(true);
+      setSaving((n) => n + 1);
       setError(null);
       try {
         await apiSetWifi(base, ssid, password);
@@ -149,14 +159,24 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         // expected and does not mean the board refused it.
         setError((e as Error)?.message || 'No reply. The board may already have switched network.');
       } finally {
-        setSaving(false);
+        setSaving((n) => Math.max(0, n - 1));
       }
     },
     [base, flashSaved]
   );
 
   const api = useMemo<BoardApi>(
-    () => ({ status, error, state, saving, saved, refresh, setControl, setRunning, setWifi }),
+    () => ({
+      status,
+      error,
+      state,
+      saving: saving > 0,
+      saved,
+      refresh,
+      setControl,
+      setRunning,
+      setWifi,
+    }),
     [status, error, state, saving, saved, refresh, setControl, setRunning, setWifi]
   );
 

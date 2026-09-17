@@ -34,9 +34,10 @@ export function Confirm({
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onCancel}>
       <Pressable style={styles.scrim} onPress={onCancel} accessibilityLabel="Dismiss">
-        <Pressable style={styles.card} onPress={() => {}}>
+        <Pressable style={styles.card} onPress={() => {}} accessible={false} accessibilityViewIsModal>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>{body}</Text>
           <View style={styles.actions}>
@@ -64,6 +65,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
+    maxHeight: '86%',
     backgroundColor: Palette.surface,
     borderRadius: Radius.xl,
     borderWidth: 1,

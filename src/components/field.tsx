@@ -1,12 +1,8 @@
 import Slider from '@react-native-community/slider';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 
 import { PRESS_SPRING } from '@/components/motion';
 import { tap } from '@/lib/haptics';
@@ -23,6 +19,7 @@ export type FieldSchema = {
   max?: string;
   step?: string;
   maxLength?: number;
+  unit?: string;
   options?: { value: string; label: string }[];
 };
 
@@ -31,6 +28,7 @@ type Commit = (value: string | boolean) => void;
 /** Sliders and text fields save on a pause, not on a separate button. */
 function useDebounced(commit: Commit, ms: number) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef<string | boolean | null>(null);
   const fn = useRef(commit);
   // Writing a ref during render is not allowed, so refresh it in an effect.
   useEffect(() => {
@@ -38,13 +36,22 @@ function useDebounced(commit: Commit, ms: number) {
   });
   useEffect(
     () => () => {
-      if (timer.current) clearTimeout(timer.current);
+      // Leaving the screen inside the debounce window used to throw the edit
+      // away in silence. Send it instead.
+      if (timer.current) {
+        clearTimeout(timer.current);
+        if (pending.current !== null) fn.current(pending.current);
+      }
     },
     []
   );
   return (v: string | boolean) => {
+    pending.current = v;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => fn.current(v), ms);
+    timer.current = setTimeout(() => {
+      pending.current = null;
+      fn.current(v);
+    }, ms);
   };
 }
 
@@ -52,7 +59,8 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
   const min = Number(field.min ?? 0);
   const max = Number(field.max ?? 255);
   const step = Number(field.step ?? 1) || 1;
-  const [value, setValue] = useState(Number(field.value) || min);
+  const parsed = Number(field.value);
+  const [value, setValue] = useState(Number.isFinite(parsed) ? parsed : min);
   const debounced = useDebounced(onCommit, 500);
 
   return (
@@ -60,7 +68,9 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
       <View style={styles.head}>
         <Text style={styles.label}>{field.label || field.name}</Text>
         {/* The original sliders showed no number at all. */}
-        <Text style={styles.readout}>{value}</Text>
+        <Text style={styles.readout} importantForAccessibility="no">
+          {value}
+        </Text>
       </View>
       <Slider
         value={value}
@@ -77,6 +87,8 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
         maximumTrackTintColor={Palette.borderStrong}
         thumbTintColor={Palette.text}
         accessibilityLabel={field.label || field.name}
+        accessibilityUnits={field.unit ?? ''}
+        accessibilityIncrements={[]}
         style={styles.slider}
       />
       <View style={styles.scale}>
@@ -90,10 +102,13 @@ export function RangeField({ field, onCommit }: { field: FieldSchema; onCommit: 
 export function TextField({
   field,
   onCommit,
+  onChange,
   secure = false,
 }: {
   field: FieldSchema;
   onCommit: Commit;
+  /** Fires on every keystroke. Use it where a stale value would be unsafe. */
+  onChange?: (value: string) => void;
   secure?: boolean;
 }) {
   const [value, setValue] = useState(field.value);
@@ -117,6 +132,7 @@ export function TextField({
           value={value}
           onChangeText={(t) => {
             setValue(t);
+            onChange?.(t);
             debounced(t);
           }}
           secureTextEntry={secure && !reveal}
@@ -156,6 +172,7 @@ export function SwitchField({ field, onCommit }: { field: FieldSchema; onCommit:
         }}
         trackColor={{ false: Palette.borderStrong, true: Palette.violet }}
         thumbColor={Palette.text}
+        ios_backgroundColor={Palette.surfaceHigh}
         accessibilityLabel={field.label || field.name}
       />
     </View>
@@ -168,7 +185,10 @@ export function SelectField({ field, onCommit }: { field: FieldSchema; onCommit:
   return (
     <View style={styles.block}>
       <Text style={styles.label}>{field.label || field.name}</Text>
-      <View style={styles.chips}>
+      <View
+        style={styles.chips}
+        accessibilityRole="radiogroup"
+        accessibilityLabel={field.label || field.name}>
         {options.map((o) => {
           const active = o.value === value;
           return (
@@ -197,59 +217,81 @@ export function SelectField({ field, onCommit }: { field: FieldSchema; onCommit:
 /** Compact on/off pill, for the long run of animation toggles. */
 export function TogglePill({
   label,
+  a11yLabel,
   on,
   onPress,
   onLongPress,
 }: {
   label: string;
+  /** A bare number tells a screen reader nothing. */
+  a11yLabel?: string;
   on: boolean;
   onPress: () => void;
   onLongPress?: () => void;
 }) {
-  const press = useSharedValue(0);
-  const lit = useSharedValue(on ? 1 : 0);
+  const [held, setHeld] = useState(false);
 
-  useEffect(() => {
-    lit.value = withTiming(on ? 1 : 0, { duration: 160 });
-  }, [on, lit]);
-
+  // No shared value is written here. The compiler forbids mutating a value
+  // that was passed to a hook, and driving the spring from plain state inside
+  // useAnimatedStyle does the same job without a mutation.
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - press.value * 0.08 }],
-    backgroundColor: lit.value > 0.5 ? Palette.magenta : Palette.surfaceHigh,
-    borderColor: lit.value > 0.5 ? Palette.magenta : Palette.border,
-    opacity: 0.75 + lit.value * 0.25,
+    transform: [{ scale: withSpring(held ? 0.96 : 1, PRESS_SPRING) }],
+    backgroundColor: withTiming(on ? Palette.magenta : Palette.surfaceHigh, { duration: 160 }),
+    borderColor: withTiming(on ? Palette.magenta : Palette.outline, { duration: 160 }),
   }));
 
+  const fireTap = useCallback(() => {
+    tap();
+    onPress();
+  }, [onPress]);
+  const fireHold = useCallback(() => {
+    tap();
+    onLongPress?.();
+  }, [onLongPress]);
+
+  /*
+   * React Native's own Pressable cancels the long press timer once the finger
+   * drifts 10 dp, but leaves the press alive, so a hold arrives as a tap. It
+   * does not expose that distance. Gesture handler does, and it also
+   * negotiates with the surrounding ScrollView instead of losing the touch.
+   */
+  const gesture = useMemo(() => {
+    const single = Gesture.Tap()
+      .runOnJS(true)
+      .maxDistance(24)
+      .onBegin(() => setHeld(true))
+      .onFinalize(() => setHeld(false))
+      .onEnd((_e, ok) => {
+        if (ok) fireTap();
+      });
+
+    if (!onLongPress) return single;
+
+    const hold = Gesture.LongPress()
+      .runOnJS(true)
+      .minDuration(300)
+      .maxDistance(24)
+      .onBegin(() => setHeld(true))
+      .onFinalize(() => setHeld(false))
+      .onStart(fireHold);
+
+    return Gesture.Exclusive(hold, single);
+  }, [onLongPress, fireTap, fireHold]);
+
   return (
-    <Pressable
-      onPressIn={() => {
-        press.value = withSpring(1, PRESS_SPRING);
-      }}
-      onPressOut={() => {
-        press.value = withSpring(0, PRESS_SPRING);
-      }}
-      onPress={() => {
-        tap();
-        onPress();
-      }}
-      onLongPress={
-        onLongPress &&
-        (() => {
-          tap();
-          onLongPress();
-        })
-      }
-      delayLongPress={450}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: on }}
-      accessibilityLabel={label}
-      accessibilityHint={onLongPress ? 'Hold to run only this animation' : undefined}>
-      <Animated.View style={[styles.pill, style]}>
+    <GestureDetector gesture={gesture}>
+      <Animated.View
+        accessible
+        accessibilityRole="switch"
+        accessibilityState={{ checked: on }}
+        accessibilityLabel={a11yLabel ?? label}
+        accessibilityHint={onLongPress ? 'Hold to open this animation' : undefined}
+        style={[styles.pill, style]}>
         <Text style={[styles.pillText, on && styles.pillTextOn]} numberOfLines={1}>
           {label}
         </Text>
       </Animated.View>
-    </Pressable>
+    </GestureDetector>
   );
 }
 
@@ -270,7 +312,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.bg,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Palette.borderStrong,
+    borderColor: Palette.outline,
     paddingHorizontal: Space.md,
     minHeight: HitSize,
   },
@@ -280,20 +322,20 @@ const styles = StyleSheet.create({
   switchLabel: { flex: 1, marginRight: Space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   chip: {
-    minHeight: 40,
+    minHeight: HitSize,
     justifyContent: 'center',
     paddingHorizontal: Space.lg,
     borderRadius: Radius.pill,
     backgroundColor: Palette.surfaceHigh,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: Palette.outline,
   },
   chipOn: { backgroundColor: Palette.violet, borderColor: Palette.violet },
   chipText: { ...Type.label, color: Palette.textMuted },
-  chipTextOn: { color: Palette.text },
+  chipTextOn: { color: Palette.onBrand, fontWeight: '700' },
   pill: {
     minWidth: 62,
-    minHeight: 40,
+    minHeight: HitSize,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Space.md,
@@ -303,6 +345,6 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
   },
   pillOn: { backgroundColor: Palette.magenta, borderColor: Palette.magenta },
-  pillText: { ...Type.caption, color: Palette.textFaint },
-  pillTextOn: { color: Palette.text, fontWeight: '700' },
+  pillText: { ...Type.caption, color: Palette.textMuted },
+  pillTextOn: { color: Palette.onBrand, fontWeight: '700' },
 });
