@@ -116,7 +116,9 @@ system image. Local Gradle builds work. See Building the APK below.
 - **NEVER start a second build before the first one has finished.** Hit 12 Sep 2026: two local
   builds ran at once on this 8 GB machine, both writing to `MagizLED-preview.apk`. One took
   **41m 54s** instead of the usual 9 to 17 minutes, and the older build overwrote the newer
-  artifact. Check `pgrep -f "eas-cli-local-build|gradlew"` before starting one.
+  artifact. Check `pgrep -f "eas-cli-local-build|bin/gradlew"` before starting one. Do NOT match
+  `GradleDaemon`: the daemon outlives every build, so that pattern blocks the next build
+  instead of protecting it. Hit 19 Sep 2026.
 - **Put the version in the output filename**, so a stale build cannot masquerade as the current
   one. Verify the artifact after every build:
   `apkanalyzer manifest print <file>.apk | grep -E "versionCode|versionName"`.
@@ -185,6 +187,9 @@ board reads a missing one as off.
 - Identity is the personal GitHub account `fakhringuyen`, set per repo:
   `10796327+fakhringuyen@users.noreply.github.com`. Never the SATU work account.
   It was `fakhri626` until 19 Sep 2026. The numeric id `10796327` does not change with a
-  rename, so only the name part of the noreply address moves. GitHub redirects the old
-  repo URLs, but the remotes here point at the new name.
+  rename, so only the name part of the noreply address moves, and old commits stay attached
+  to the account. The rename freed `fakhri626` for anyone else immediately.
+- The only remote is `origin`, `https://github.com/fakhringuyen/magizled.git`, private.
+  A second remote pointed at `fakhringuyen/mobile-app`, the repository this project started
+  in. That repository no longer exists, so the remote was removed on 19 Sep 2026.
 - No global git identity exists on this Mac. Check `git config user.email` after a clone.
