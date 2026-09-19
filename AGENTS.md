@@ -120,6 +120,12 @@ system image. Local Gradle builds work. See Building the APK below.
 - **Put the version in the output filename**, so a stale build cannot masquerade as the current
   one. Verify the artifact after every build:
   `apkanalyzer manifest print <file>.apk | grep -E "versionCode|versionName"`.
+- **`eas build` runs `expo-doctor` as a build phase and FAILS the build when a dependency
+  patch is out of date.** Hit 19 Sep 2026: doctor passed 21 of 21 locally, then the build died
+  minutes later with `npx -y expo-doctor exited with non-zero code: 1` and 5 packages out of
+  date. Expo publishes SDK 57 patches often, and doctor compares against the live registry, so
+  the window between a local check and a build is enough to go stale. Run
+  `npx expo install --fix` immediately before the build, not earlier in the session.
 - Cloud builds (`eas build` without `--local`) sat in the free queue for 75 minutes without
   starting on 10 Sep 2026. Prefer local.
 
