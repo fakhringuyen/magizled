@@ -8,6 +8,17 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.6.1',
+    build: 13,
+    date: '2026-09-19',
+    changes: [
+      'Arrived over the air.',
+      'The message counter was wrong for emoji. A family emoji read as 20 of 60 while looking like one character.',
+      'It now counts what you see, and shows bytes as well once a message leaves plain English.',
+      'Typing can no longer cut an emoji in half. The board holds 60 bytes, and one emoji is four.',
+    ],
+  },
+  {
     version: '4.6.0',
     build: 13,
     date: '2026-09-19',

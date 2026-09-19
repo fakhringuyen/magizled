@@ -6,6 +6,7 @@ import Animated, { useAnimatedStyle, withSpring, withTiming } from 'react-native
 
 import { PRESS_SPRING } from '@/components/motion';
 import { tap } from '@/lib/haptics';
+import { clampToBytes, countGraphemes, isPlainAscii, utf8Bytes } from '@/lib/text-length';
 import { HitSize, Palette, Radius, Space, Type } from '@/theme/tokens';
 
 /** Shape a field renderer needs, independent of where it came from. */
@@ -114,7 +115,11 @@ export function TextField({
   const [value, setValue] = useState(field.value);
   const [reveal, setReveal] = useState(false);
   const debounced = useDebounced(onCommit, 900);
+  // The firmware's limit is a fixed buffer, so bytes are what can overflow it.
   const limit = field.maxLength;
+  const bytes = limit ? utf8Bytes(value) : 0;
+  const seen = limit ? countGraphemes(value) : 0;
+  const plain = limit ? isPlainAscii(value) : true;
 
   return (
     <View style={styles.block}>
@@ -122,8 +127,15 @@ export function TextField({
         <Text style={styles.label}>{field.label || field.name}</Text>
         {/* LED boards truncate long text, so show the budget. */}
         {!!limit && (
-          <Text style={[styles.readout, value.length > limit && { color: Palette.danger }]}>
-            {value.length}/{limit}
+          <Text
+            style={[styles.readout, bytes >= limit && { color: Palette.warn }]}
+            accessibilityLabel={
+              plain
+                ? `${seen} of ${limit} characters`
+                : `${seen} characters, ${bytes} of ${limit} bytes`
+            }>
+            {/* An emoji costs four bytes, so show what the board counts too. */}
+            {plain ? `${seen}/${limit}` : `${seen} · ${bytes}/${limit} B`}
           </Text>
         )}
       </View>
@@ -131,14 +143,16 @@ export function TextField({
         <TextInput
           value={value}
           onChangeText={(t) => {
-            setValue(t);
-            onChange?.(t);
-            debounced(t);
+            // maxLength counts UTF-16 units and can cut a surrogate pair in
+            // half. Clamping on bytes never splits a character.
+            const next = limit ? clampToBytes(t, limit) : t;
+            setValue(next);
+            onChange?.(next);
+            debounced(next);
           }}
           secureTextEntry={secure && !reveal}
           autoCapitalize="none"
           autoCorrect={false}
-          maxLength={limit}
           placeholderTextColor={Palette.textFaint}
           style={styles.input}
           accessibilityLabel={field.label || field.name}
