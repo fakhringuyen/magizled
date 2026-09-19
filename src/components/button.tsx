@@ -75,7 +75,11 @@ export function Button({
       style={[
         styles.base,
         full && styles.full,
-        variant !== 'primary' && styles[variant],
+        // The gradient is decoration layered on top. On Android it did not
+        // paint inside a pill with overflow hidden, and the button vanished:
+        // dark ink on a dark card. A solid fill underneath makes that
+        // impossible, whatever the gradient does.
+        variant === 'primary' ? styles.primary : styles[variant],
         inert && styles.inert,
         motion,
       ]}>
@@ -104,6 +108,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   full: { alignSelf: 'stretch' },
+  primary: { backgroundColor: Palette.violet },
   secondary: { backgroundColor: Palette.surfaceHigh, borderWidth: 1, borderColor: Palette.border },
   ghost: { backgroundColor: 'transparent' },
   danger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Palette.danger },

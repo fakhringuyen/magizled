@@ -8,6 +8,17 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.7.1',
+    build: 13,
+    date: '2026-09-19',
+    changes: [
+      'Fixed: the selected button vanished when you pressed it.',
+      'Its colour came only from a gradient, which did not paint on Android, leaving dark text on a dark card.',
+      'This hit every filled button, including Save Wi-Fi, Retry and Restart now.',
+      'The system navigation bar no longer sits directly on the animation grid.',
+    ],
+  },
+  {
     version: '4.7.0',
     build: 13,
     date: '2026-09-19',

@@ -210,6 +210,17 @@ function Panel() {
         </ScrollView>
       )}
 
+      {/*
+        Edge to edge draws the system bar over the content. Without a solid
+        strip behind it, the gesture bar sits directly on the animation grid.
+      */}
+      {insets.bottom > 0 && (
+        <View
+          pointerEvents="none"
+          style={[styles.navScrim, { height: insets.bottom }]}
+        />
+      )}
+
       <Confirm
         visible={askExit}
         title="Close MagizLED?"
@@ -587,4 +598,5 @@ const styles = StyleSheet.create({
     borderBottomColor: Palette.border,
   },
   label: { ...Type.body, color: Palette.text },
+  navScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: Palette.bg },
 });
