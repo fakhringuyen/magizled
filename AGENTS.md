@@ -95,10 +95,13 @@ system image. Local Gradle builds work. See Building the APK below.
   and pulls `dtrace-provider`, which needs a node-gyp compile. That broke build
   `e6b00374` in the Install dependencies phase on 10 Sep 2026.
 - Log in once with `eas login`, then `eas init` to create the project on Expo.
-- Android package is `com.fakhri626.magizled`, set in `app.json`. It was
-  `com.fakhri626.mobileapp` until 10 Sep 2026. A package change makes EAS create a NEW
-  keystore, and an installed build of the old package will not upgrade in place. Uninstall
-  the old one on the phone first. It cannot change after a Play Store upload.
+- Android package is `com.fakhringuyen.magizled`, set in `app.json`. The history is
+  `com.fakhri626.mobileapp` until 10 Sep 2026, then `com.fakhri626.magizled` until
+  19 Sep 2026, when Fakhri renamed his GitHub account to `fakhringuyen`. A package change
+  makes EAS create a NEW keystore, and an installed build of the old package does not
+  upgrade in place: Android treats it as a separate app, so uninstall the old one first.
+  That uninstall also wipes AsyncStorage, which holds the board address and the animation
+  names. The package cannot change after a Play Store upload.
 - EAS creates and stores the signing keystore on Expo servers on the first build.
   Back it up with `eas credentials`. A lost keystore blocks all future Play Store updates.
 - `versionCode` starts at 1 in `app.json`. The production profile increments it automatically.
@@ -173,6 +176,9 @@ board reads a missing one as off.
 
 ### Git
 
-- Identity is the personal GitHub account `fakhri626`, set per repo:
-  `10796327+fakhri626@users.noreply.github.com`. Never the SATU work account.
+- Identity is the personal GitHub account `fakhringuyen`, set per repo:
+  `10796327+fakhringuyen@users.noreply.github.com`. Never the SATU work account.
+  It was `fakhri626` until 19 Sep 2026. The numeric id `10796327` does not change with a
+  rename, so only the name part of the noreply address moves. GitHub redirects the old
+  repo URLs, but the remotes here point at the new name.
 - No global git identity exists on this Mac. Check `git config user.email` after a clone.

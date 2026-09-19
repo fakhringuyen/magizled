@@ -8,6 +8,16 @@ export type Release = {
 /** Newest first. The top entry must match app.json. */
 export const CHANGELOG: Release[] = [
   {
+    version: '4.6.0',
+    build: 13,
+    date: '2026-09-19',
+    changes: [
+      'The Android package is now com.fakhringuyen.magizled, following the account rename.',
+      'Android treats this as a separate app, so the older MagizLED stays until you remove it.',
+      'Saved animation names do not survive removing the old app. They live on the phone.',
+    ],
+  },
+  {
     version: '4.5.0',
     build: 12,
     date: '2026-09-17',
