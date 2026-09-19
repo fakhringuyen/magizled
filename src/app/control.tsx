@@ -25,6 +25,7 @@ import { IconButton } from '@/components/icon-button';
 import { warn } from '@/lib/haptics';
 import { ANIMATION_COUNT, CONTROLS, TEXT_MAX, type Control } from '@/lib/magiz-api';
 import { labelFor, useAnimationNames } from '@/lib/animation-names';
+import { useParked } from '@/lib/parked';
 import { useSettings } from '@/lib/settings';
 import { Palette, Radius, Space, Type } from '@/theme/tokens';
 
@@ -276,13 +277,90 @@ function ControlField({ control }: { control: Control }) {
 
 function MessagesCard() {
   const board = useBoard();
+  const { parked, write } = useParked();
   const slots = [
     { key: 'text1' as const, value: board.state.text1 },
     { key: 'text2' as const, value: board.state.text2 },
     { key: 'text3' as const, value: board.state.text3 },
   ];
+  const live = slots.filter((s) => s.value.trim().length > 0).map((s) => s.key);
+  const animationsOn = board.state.animations.some(Boolean);
+
+  /** Sends one message and empties the rest, keeping them here. */
+  function showOnly(key: 'text1' | 'text2' | 'text3' | 'all') {
+    const source = parked.texts ?? {
+      text1: board.state.text1,
+      text2: board.state.text2,
+      text3: board.state.text3,
+    };
+    if (key === 'all') {
+      write({ texts: null });
+      board.setRunning(source);
+      return;
+    }
+    write({ texts: source });
+    board.setRunning({
+      text1: key === 'text1' ? source.text1 : '',
+      text2: key === 'text2' ? source.text2 : '',
+      text3: key === 'text3' ? source.text3 : '',
+    });
+  }
+
+  /** Turns every animation off, or puts back the set that was on. */
+  function setAnimationsPlaying(play: boolean) {
+    if (play) {
+      const restore = parked.animations ?? Array(ANIMATION_COUNT).fill(true);
+      write({ animations: null });
+      board.setRunning({ animations: restore });
+    } else {
+      write({ animations: board.state.animations.slice() });
+      board.setRunning({ animations: Array(ANIMATION_COUNT).fill(false) });
+    }
+  }
+
+  const showing = parked.texts
+    ? (['text1', 'text2', 'text3'] as const).find((k) => board.state[k].trim().length > 0) ?? 'all'
+    : 'all';
+
   return (
     <Card title="Running text">
+      <View style={styles.modeBlock}>
+        <Text style={styles.label}>Show</Text>
+        <View style={styles.actionsRow} accessibilityRole="radiogroup" accessibilityLabel="Which message to show">
+          {(['all', 'text1', 'text2', 'text3'] as const).map((k) => {
+            const n = k === 'all' ? 'All' : `Message ${k.slice(-1)}`;
+            const empty = k !== 'all' && !slots[Number(k.slice(-1)) - 1].value.trim();
+            return (
+              <Button
+                key={k}
+                label={n}
+                onPress={() => showOnly(k)}
+                variant={showing === k ? 'primary' : 'secondary'}
+                disabled={empty}
+              />
+            );
+          })}
+        </View>
+        <SwitchField
+          key={`play:${animationsOn}`}
+          field={{
+            name: 'play-animations',
+            type: 'checkbox',
+            value: '',
+            checked: animationsOn,
+            label: 'Play animations as well',
+          }}
+          onCommit={(v) => setAnimationsPlaying(v === true)}
+        />
+        {!!parked.texts && (
+          <Text style={styles.hint}>
+            {live.length === 1
+              ? 'The other messages are held in the app, not on the board. Choose All to put them back.'
+              : 'Some messages are held in the app. Choose All to put them back.'}
+          </Text>
+        )}
+      </View>
+
       {slots.map((s, i) => (
         <TextField
           key={`${s.key}:${s.value}`}
@@ -502,4 +580,11 @@ const styles = StyleSheet.create({
   note: { ...Type.caption, color: Palette.textFaint },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   hint: { ...Type.caption, color: Palette.textFaint },
+  modeBlock: {
+    gap: Space.md,
+    paddingBottom: Space.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.border,
+  },
+  label: { ...Type.body, color: Palette.text },
 });
